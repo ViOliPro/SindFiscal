@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// RF19, RNF04, RNF14 — registro de auditoria imutável (somente INSERT).

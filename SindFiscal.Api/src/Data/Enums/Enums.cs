@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Enum;
+namespace SindFiscal.Data.Enums;
 
 // Cada enum abaixo corresponde a uma coluna text + CHECK constraint no schema.sql.
 // A conversão para snake_case no banco é feita via SnakeCaseEnumConverter

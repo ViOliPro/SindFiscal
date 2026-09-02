@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// Tabela de junção — quais pagamentos compõem um item de transferência de

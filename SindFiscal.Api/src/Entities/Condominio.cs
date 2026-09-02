@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>RF02 — condomínio administrado por um síndico (RN03).</summary>
 public class Condominio

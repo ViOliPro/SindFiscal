@@ -1,6 +1,6 @@
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Data.Enums;
 
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// RF10, RF12, RF13, RN07, RN11–RN14 — compromisso financeiro. Pode ter

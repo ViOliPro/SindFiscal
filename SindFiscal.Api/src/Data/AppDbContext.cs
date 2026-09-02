@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using SindFiscal.Api.src.Conversoes;
-using SindFiscal.Api.src.Entities;
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Conversoes;
+using SindFiscal.Data.Enums;
+using SindFiscal.Entities;
 
-namespace SindFiscal.Api.src.Data;
+namespace SindFiscal.Data;
 
 /// <summary>
 /// DbContext principal. Pressupõe o pacote EFCore.NamingConventions

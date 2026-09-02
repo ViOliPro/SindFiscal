@@ -1,6 +1,6 @@
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Data.Enums;
 
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>RF01, RF03 — síndico, colaboradores e conselheiros fiscais (RN29, RN30).</summary>
 public class Usuario

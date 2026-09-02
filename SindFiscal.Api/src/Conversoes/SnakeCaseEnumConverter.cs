@@ -1,7 +1,7 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace SindFiscal.Api.src.Conversoes;
+namespace SindFiscal.Conversoes;
 
 /// <summary>
 /// Converte um enum C# (ex.: <c>FundoTrabalho</c>) para o texto usado nas colunas

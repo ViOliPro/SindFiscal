@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>RF08, RN04 — fornecedor pertence ao síndico, compartilhado entre todos os seus condomínios.</summary>
 public class Fornecedor

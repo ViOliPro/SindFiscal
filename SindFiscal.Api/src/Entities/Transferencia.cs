@@ -1,6 +1,6 @@
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Data.Enums;
 
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// RF14, RN17–RN24 — item da área de acerto. Motivo distingue reposição,

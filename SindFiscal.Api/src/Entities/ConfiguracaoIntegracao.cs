@@ -1,6 +1,6 @@
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Data.Enums;
 
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// RF15, RNF13 — 1:1 com condomínio. Agnóstica de fornecedor (RN01–RN03):

@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>RF07, RN05, RN06 — quantidade livre de cotações por necessidade (1 a N).</summary>
 public class Cotacao

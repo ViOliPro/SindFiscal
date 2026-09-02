@@ -1,4 +1,4 @@
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>
 /// RF21, RN23 — reserva de área comum (ex.: espaço gourmet). Origem: lista que

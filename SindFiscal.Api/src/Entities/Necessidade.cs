@@ -1,6 +1,6 @@
-using SindFiscal.Api.src.Enum;
+using SindFiscal.Data.Enums;
 
-namespace SindFiscal.Api.src.Entities;
+namespace SindFiscal.Entities;
 
 /// <summary>RF06 — necessidade/previsão, com ciclo de vida único.</summary>
 public class Necessidade
