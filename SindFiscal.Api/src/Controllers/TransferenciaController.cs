@@ -105,7 +105,7 @@ public class TransferenciaController : ControllerBase
                 "Só é possível consolidar itens com a mesma conta de origem e de destino."
             );
 
-        var consolidado = new Sindico.Dominio.Entities.Transferencia
+        var consolidado = new SindFiscal.Entities.Transferencia
         {
             Id = Guid.NewGuid(),
             CondominioId = condominioId,

@@ -1,27 +1,32 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.IdentityModel.Tokens;
-using SindFiscal.Services;
-using SindFiscal.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using SindFiscal.Data;
+using SindFiscal.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
-builder.Services.AddDbContext<AppDbContext>(opt => opt
-    .UseNpgsql(builder.Configuration.GetConnectionString("Default"))
-    .UseSnakeCaseNamingConvention()); // pacote EFCore.NamingConventions — ver README.md
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+        .UseSnakeCaseNamingConvention()
+); // pacote EFCore.NamingConventions — ver README.md
 
 // ---------------------------------------------------------------- Serviços de domínio
 builder.Services.AddScoped<AreaDeAcertoService>();
 builder.Services.AddScoped<FilaExecucaoService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
-var chaveJwt = builder.Configuration["Jwt:ChaveSecreta"]
-    ?? throw new InvalidOperationException("Configuração Jwt:ChaveSecreta ausente (appsettings.json ou variável de ambiente).");
+var chaveJwt =
+    builder.Configuration["Jwt:ChaveSecreta"]
+    ?? throw new InvalidOperationException(
+        "Configuração Jwt:ChaveSecreta ausente (appsettings.json ou variável de ambiente)."
+    );
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
         opt.TokenValidationParameters = new TokenValidationParameters
@@ -41,9 +46,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // [AllowAnonymous] no AuthController.Login é a única exceção.
 builder.Services.AddAuthorization(opt =>
 {
-    opt.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
+    opt.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
 builder.Services.AddControllers();
@@ -51,10 +54,7 @@ builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-
-}
+if (app.Environment.IsDevelopment()) { }
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
