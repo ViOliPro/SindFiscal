@@ -40,7 +40,7 @@ public class CondominioController : ControllerBase
         }
 
         var lista = await query.OrderBy(c => c.Nome).ToListAsync(ct);
-        return Ok(lista.Select(c => new CondominioResponse(c.Id, c.Nome, c.PossuiIntegracaoApi)).ToList());
+        return Ok(lista.Select(ParaResponse).ToList());
     }
 
     [HttpPost]
@@ -74,10 +74,10 @@ public class CondominioController : ControllerBase
         });
 
         await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Listar), null,
-            new CondominioResponse(condominio.Id, condominio.Nome, condominio.PossuiIntegracaoApi));
+        return CreatedAtAction(nameof(Listar), null, ParaResponse(condominio));
     }
 
+    /// <summary>RN07 — inclui a alçada de aprovação (RF10), configurável e sem padrão único entre condomínios.</summary>
     [HttpPut("{condominioId:guid}")]
     public async Task<ActionResult<CondominioResponse>> Atualizar(
         Guid condominioId, AtualizarCondominioRequest request, CancellationToken ct)
@@ -85,15 +85,22 @@ public class CondominioController : ControllerBase
         var usuarioId = UsuarioId();
         if (usuarioId is null) return Unauthorized();
 
+        if (request.ValorAlcadaAprovacao is < 0)
+            return BadRequest("Valor de alçada não pode ser negativo.");
+
         var c = await _db.Condominios.FirstOrDefaultAsync(
             x => x.Id == condominioId && x.SindicoId == usuarioId, ct);
         if (c is null) return NotFound();
 
         c.Nome = request.Nome.Trim();
+        c.ValorAlcadaAprovacao = request.ValorAlcadaAprovacao;
         c.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
-        return Ok(new CondominioResponse(c.Id, c.Nome, c.PossuiIntegracaoApi));
+        return Ok(ParaResponse(c));
     }
+
+    private static CondominioResponse ParaResponse(Condominio c) =>
+        new(c.Id, c.Nome, c.PossuiIntegracaoApi, c.ValorAlcadaAprovacao);
 
     private Guid? UsuarioId()
     {

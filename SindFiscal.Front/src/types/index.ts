@@ -26,6 +26,15 @@ export type TipoLancamento = 'entrada' | 'saida'
 export type OrigemLancamento = 'real' | 'simulado'
 export type FonteLancamento = 'manual' | 'integracao'
 
+export type ResultadoDecisao = 'aprovado' | 'reprovado' | 'adiado'
+export type StatusCompromisso =
+  | 'aguardando_execucao'
+  | 'em_fila_execucao'
+  | 'em_execucao'
+  | 'concluido'
+  | 'cancelado'
+export type TipoPagamento = 'entrada' | 'adiantamento' | 'parcela' | 'total'
+
 export interface Usuario {
   id: string
   nome: string
@@ -76,6 +85,66 @@ export interface Lancamento {
 export interface LoginResponse {
   token: string
   usuario: Usuario
+}
+
+export interface Decisao {
+  id: string
+  necessidadeId: string
+  cotacaoEscolhidaId: string | null
+  responsavelId: string
+  data: string
+  resultado: ResultadoDecisao
+  justificativa: string | null
+  referenciaRespaldo: string | null
+}
+
+export interface CompromissoFinanceiro {
+  id: string
+  necessidadeId: string | null
+  compromissoPaiId: string | null
+  categoria: string
+  valorAprovado: number
+  status: StatusCompromisso
+  prioridadeFila: number | null
+  totalGastosVinculados: number
+  totalPago: number
+  saldoRemanescente: number
+  requerValidacaoConselho: boolean
+}
+
+export interface GastoVinculadoResumo {
+  id: string
+  categoria: string
+  valor: number
+  status: StatusCompromisso
+  createdAt: string
+}
+
+export interface PagamentoResumo {
+  id: string
+  tipo: TipoPagamento
+  valor: number
+  data: string
+}
+
+export interface CompromissoFinanceiroDetalhe {
+  compromisso: CompromissoFinanceiro
+  gastosVinculados: GastoVinculadoResumo[]
+  pagamentos: PagamentoResumo[]
+}
+
+export const STATUS_COMPROMISSO_LABEL: Record<StatusCompromisso, string> = {
+  aguardando_execucao: 'Aguardando execução',
+  em_fila_execucao: 'Em fila de execução',
+  em_execucao: 'Em execução',
+  concluido: 'Concluído',
+  cancelado: 'Cancelado',
+}
+
+export const RESULTADO_DECISAO_LABEL: Record<ResultadoDecisao, string> = {
+  aprovado: 'Aprovado',
+  reprovado: 'Reprovado',
+  adiado: 'Adiado',
 }
 
 export const MODULOS_LABEL: Record<string, string> = {
