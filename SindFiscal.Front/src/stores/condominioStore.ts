@@ -1,13 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Condominio } from '@/types/condominio'
+
+export interface CondominioLocal {
+  id: string
+  nome: string
+  ativo: boolean
+}
 
 interface CondominioStore {
-  condominios: Condominio[]
+  condominios: CondominioLocal[]
   condominioAtivoId: string | null
-  setCondominios: (lista: Condominio[]) => void
+  setCondominios: (lista: CondominioLocal[]) => void
   setCondominioAtivo: (id: string | null) => void
-  condominioAtivo: () => Condominio | null
+  condominioAtivo: () => CondominioLocal | null
 }
 
 export const useCondominioStore = create<CondominioStore>()(
@@ -29,7 +34,6 @@ export const useCondominioStore = create<CondominioStore>()(
       name: 'sindfiscal-condominio',
       partialize: (s) => ({
         condominioAtivoId: s.condominioAtivoId,
-        // lista de condomínios vem da API; não persistimos para evitar stale
       }),
     },
   ),

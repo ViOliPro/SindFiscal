@@ -1,11 +1,44 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AuthState, Usuario, Permissao, Modulo, NivelPermissao } from '@/types/auth'
+import type { NivelPermissao, PapelUsuario } from '@/types'
 
-interface AuthStore extends AuthState {
-  setAuth: (token: string, usuario: Usuario, permissoes: Permissao[]) => void
+export type Modulo =
+  | 'contas_lancamentos'
+  | 'necessidades_cotacoes_fornecedores'
+  | 'decisoes_compromissos'
+  | 'pagamentos_fila_execucao'
+  | 'transferencias_area_acerto'
+  | 'simulacao_caixa_futuro'
+  | 'dashboard_relatorios'
+  | 'documentos'
+  | 'reservas_area_comum'
+  | 'auditoria'
+  | 'condominios_usuarios_integracoes'
+
+export interface Usuario {
+  id: string
+  nome: string
+  email: string
+  papel: PapelUsuario
+}
+
+export interface PermissaoLocal {
+  condominioId: string
+  modulo: Modulo | string
+  nivel: NivelPermissao
+}
+
+interface AuthStore {
+  token: string | null
+  usuario: Usuario | null
+  permissoes: PermissaoLocal[]
+  setAuth: (token: string, usuario: Usuario, permissoes: PermissaoLocal[]) => void
   logout: () => void
-  hasPermissao: (condominioId: string, modulo: Modulo, nivel?: NivelPermissao) => boolean
+  hasPermissao: (
+    condominioId: string,
+    modulo: Modulo | string,
+    nivel?: NivelPermissao,
+  ) => boolean
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -23,9 +56,7 @@ export const useAuthStore = create<AuthStore>()(
       hasPermissao: (condominioId, modulo, nivel = 'visualizar') => {
         const { usuario, permissoes } = get()
         if (!usuario) return false
-        // Síndico tem acesso pleno (RF03 / módulo 11)
         if (usuario.papel === 'sindico') return true
-        // Conselheiro fiscal: somente leitura em módulos permitidos
         if (usuario.papel === 'conselheiro_fiscal') {
           return nivel === 'visualizar'
         }

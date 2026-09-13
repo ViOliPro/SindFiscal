@@ -12,6 +12,7 @@ export class ApiError extends Error {
   }
 }
 
+/** ASP.NET default JSON is camelCase */
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -26,10 +27,15 @@ export async function apiFetch<T>(
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers,
+    })
+  } catch {
+    throw new ApiError(0, 'Falha de rede — API indisponível.')
+  }
 
   if (!res.ok) {
     let msg = res.statusText
