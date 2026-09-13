@@ -2,6 +2,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useCondominioStore } from '@/stores/condominioStore'
 import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { listarCondominios } from '@/services/api'
 
 const NAV = [
   { to: '/', label: 'Dashboard', end: true },
@@ -22,15 +24,23 @@ export function AppShell() {
   const { condominios, condominioAtivoId, setCondominioAtivo, setCondominios } =
     useCondominioStore()
 
-  // Placeholder: carregar condomínios reais quando API estiver pronta
+  const condominiosQ = useQuery({
+    queryKey: ['condominios'],
+    queryFn: listarCondominios,
+    retry: 1,
+  })
+
   useEffect(() => {
-    if (condominios.length === 0) {
-      setCondominios([
-        { id: 'demo-1', nome: 'Residencial Exemplo', ativo: true },
-        { id: 'demo-2', nome: 'Edifício Horizonte', ativo: true },
-      ])
+    if (condominiosQ.data) {
+      setCondominios(
+        condominiosQ.data.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          ativo: true,
+        })),
+      )
     }
-  }, [condominios.length, setCondominios])
+  }, [condominiosQ.data, setCondominios])
 
   useEffect(() => {
     if (!condominioAtivoId && condominios.length > 0) {
@@ -74,6 +84,9 @@ export function AppShell() {
             onChange={(e) => setCondominioAtivo(e.target.value || null)}
             aria-label="Condomínio ativo"
           >
+            {condominios.length === 0 && (
+              <option value="">Nenhum condomínio</option>
+            )}
             {condominios.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}
