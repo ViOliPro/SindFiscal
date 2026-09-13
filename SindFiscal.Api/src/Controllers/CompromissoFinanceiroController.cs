@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SindFiscal.Authorization;
-using SindFiscal.Dtos;
-using SindFiscal.Services;
 using SindFiscal.Data;
-using SindFiscal.Entities;
 using SindFiscal.Data.Enums;
+using SindFiscal.Dtos;
+using SindFiscal.Entities;
+using SindFiscal.Services;
 
 namespace SindFiscal.Controllers;
 
@@ -30,10 +30,14 @@ public class CompromissoFinanceiroController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CompromissoFinanceiroResponse>>> Listar(
-        Guid condominioId, [FromQuery] StatusCompromisso? status, CancellationToken ct)
+        Guid condominioId,
+        [FromQuery] StatusCompromisso? status,
+        CancellationToken ct
+    )
     {
         var query = _db.CompromissosFinanceiros.Where(c => c.CondominioId == condominioId);
-        if (status is not null) query = query.Where(c => c.Status == status);
+        if (status is not null)
+            query = query.Where(c => c.Status == status);
 
         var compromissos = await query.OrderBy(c => c.PrioridadeFila).ToListAsync(ct);
         return Ok(compromissos.Select(ParaResponse).ToList());
@@ -43,7 +47,10 @@ public class CompromissoFinanceiroController : ControllerBase
     [HttpPost("avulsos")]
     [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
     public async Task<ActionResult<CompromissoFinanceiroResponse>> CriarAvulso(
-        Guid condominioId, CriarCompromissoAvulsoRequest request, CancellationToken ct)
+        Guid condominioId,
+        CriarCompromissoAvulsoRequest request,
+        CancellationToken ct
+    )
     {
         var compromisso = new CompromissoFinanceiro
         {
@@ -63,10 +70,18 @@ public class CompromissoFinanceiroController : ControllerBase
     [HttpPost("{compromissoPaiId:guid}/gastos-vinculados")]
     [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
     public async Task<ActionResult<CompromissoFinanceiroResponse>> VincularGasto(
-        Guid condominioId, Guid compromissoPaiId, VincularGastoRequest request, CancellationToken ct)
+        Guid condominioId,
+        Guid compromissoPaiId,
+        VincularGastoRequest request,
+        CancellationToken ct
+    )
     {
-        var pai = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(c => c.Id == compromissoPaiId && c.CondominioId == condominioId, ct);
-        if (pai is null) return NotFound("Compromisso pai não encontrado.");
+        var pai = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
+            c => c.Id == compromissoPaiId && c.CondominioId == condominioId,
+            ct
+        );
+        if (pai is null)
+            return NotFound("Compromisso pai não encontrado.");
 
         var filho = new CompromissoFinanceiro
         {
@@ -86,24 +101,49 @@ public class CompromissoFinanceiroController : ControllerBase
     /// <summary>RF13, RN11 — entra na fila de execução (aguardando disponibilidade de caixa).</summary>
     [HttpPost("{compromissoId:guid}/entrar-na-fila")]
     [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
-    public async Task<IActionResult> EntrarNaFila(Guid condominioId, Guid compromissoId, CancellationToken ct)
+    public async Task<IActionResult> EntrarNaFila(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
     {
-        await _filaExecucao.EntrarNaFilaAsync(compromissoId, ct);
+        try
+        {
+            await _filaExecucao.EntrarNaFilaAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
         return NoContent();
     }
 
     /// <summary>RF13, RN11 — reordenação manual e livre pelo síndico; sem critério automático nesta fase.</summary>
     [HttpPut("fila-execucao/reordenar")]
     [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
-    public async Task<IActionResult> ReordenarFila(Guid condominioId, ReordenarFilaExecucaoRequest request, CancellationToken ct)
+    public async Task<IActionResult> ReordenarFila(
+        Guid condominioId,
+        ReordenarFilaExecucaoRequest request,
+        CancellationToken ct
+    )
     {
         await _filaExecucao.ReordenarAsync(condominioId, request.CompromissoIdsEmOrdem, ct);
         return NoContent();
     }
 
-    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c) => new(
-        c.Id, c.NecessidadeId, c.CompromissoPaiId, c.Categoria, c.ValorAprovado, c.Status, c.PrioridadeFila,
-        TotalGastosVinculados: 0, TotalPago: 0, SaldoRemanescente: c.ValorAprovado);
+    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c) =>
+        new(
+            c.Id,
+            c.NecessidadeId,
+            c.CompromissoPaiId,
+            c.Categoria,
+            c.ValorAprovado,
+            c.Status,
+            c.PrioridadeFila,
+            TotalGastosVinculados: 0,
+            TotalPago: 0,
+            SaldoRemanescente: c.ValorAprovado
+        );
     // Nota de implementação: TotalGastosVinculados e TotalPago exigem um Include/projeção
     // com GastosVinculados e Pagamentos (omitido aqui por brevidade) — ver
     // CompromissoFinanceiro.TotalGastosVinculados na entidade para o cálculo de referência.
