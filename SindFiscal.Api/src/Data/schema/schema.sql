@@ -49,6 +49,7 @@ CREATE TABLE condominio (
     sindico_id              uuid NOT NULL REFERENCES usuario(id),
     nome                    varchar(150) NOT NULL,
     possui_integracao_api   boolean NOT NULL DEFAULT false,
+    valor_alcada_aprovacao  numeric(14,2),  -- RF10, RN07: alçada p/ validação do Conselho Fiscal, por condomínio
     created_at              timestamptz NOT NULL DEFAULT now(),
     updated_at              timestamptz
 );

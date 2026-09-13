@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SindFiscal.Authorization;
-using SindFiscal.Dtos;
-using SindFiscal.Services;
 using SindFiscal.Data;
-using SindFiscal.Entities;
 using SindFiscal.Data.Enums;
+using SindFiscal.Dtos;
+using SindFiscal.Entities;
+using SindFiscal.Services;
 
 namespace SindFiscal.Controllers;
 
@@ -30,81 +30,300 @@ public class CompromissoFinanceiroController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CompromissoFinanceiroResponse>>> Listar(
-        Guid condominioId, [FromQuery] StatusCompromisso? status, CancellationToken ct)
+        Guid condominioId,
+        [FromQuery] StatusCompromisso? status,
+        CancellationToken ct
+    )
     {
+<<<<<<< HEAD
         var query = _db.CompromissosFinanceiros.Where(c => c.CondominioId == condominioId);
+        if (status is not null)
+            query = query.Where(c => c.Status == status);
+=======
+        var query = _db.CompromissosFinanceiros
+            .Include(c => c.GastosVinculados)
+            .Include(c => c.Pagamentos)
+            .Where(c => c.CondominioId == condominioId);
         if (status is not null) query = query.Where(c => c.Status == status);
+>>>>>>> 2b8221cfa4f16070dde4e4f1a12a48d503c46b8d
 
         var compromissos = await query.OrderBy(c => c.PrioridadeFila).ToListAsync(ct);
-        return Ok(compromissos.Select(ParaResponse).ToList());
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        return Ok(compromissos.Select(c => ParaResponse(c, alcada)).ToList());
+    }
+
+    /// <summary>Detalhe de um compromisso, com gastos vinculados (RF12) e pagamentos (RF11).</summary>
+    [HttpGet("{compromissoId:guid}")]
+    public async Task<ActionResult<CompromissoFinanceiroDetalheResponse>> Detalhar(
+        Guid condominioId, Guid compromissoId, CancellationToken ct)
+    {
+        var compromisso = await _db.CompromissosFinanceiros
+            .Include(c => c.GastosVinculados)
+            .Include(c => c.Pagamentos)
+            .FirstOrDefaultAsync(c => c.Id == compromissoId && c.CondominioId == condominioId, ct);
+        if (compromisso is null) return NotFound("Compromisso não encontrado.");
+
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        var gastos = compromisso.GastosVinculados
+            .OrderByDescending(g => g.CreatedAt)
+            .Select(g => new GastoVinculadoResumo(g.Id, g.Categoria, g.ValorAprovado, g.Status, g.CreatedAt))
+            .ToList();
+        var pagamentos = compromisso.Pagamentos
+            .OrderByDescending(p => p.Data)
+            .Select(p => new PagamentoResumo(p.Id, p.Tipo, p.Valor, p.Data))
+            .ToList();
+
+        return Ok(new CompromissoFinanceiroDetalheResponse(ParaResponse(compromisso, alcada), gastos, pagamentos));
     }
 
     /// <summary>RN15 — compromisso avulso, sem necessidade formal associada.</summary>
     [HttpPost("avulsos")]
     [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
     public async Task<ActionResult<CompromissoFinanceiroResponse>> CriarAvulso(
-        Guid condominioId, CriarCompromissoAvulsoRequest request, CancellationToken ct)
+        Guid condominioId,
+        CriarCompromissoAvulsoRequest request,
+        CancellationToken ct
+    )
     {
+        if (string.IsNullOrWhiteSpace(request.Categoria))
+            return BadRequest("Categoria é obrigatória.");
+        if (request.ValorAprovado < 0)
+            return BadRequest("Valor aprovado não pode ser negativo.");
+
+        var condominioExiste = await _db.Condominios.AnyAsync(c => c.Id == condominioId, ct);
+        if (!condominioExiste) return NotFound("Condomínio não encontrado.");
+
         var compromisso = new CompromissoFinanceiro
         {
             Id = Guid.NewGuid(),
             CondominioId = condominioId,
-            Categoria = request.Categoria,
+            Categoria = request.Categoria.Trim(),
             ValorAprovado = request.ValorAprovado,
             Status = StatusCompromisso.AguardandoExecucao,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         _db.CompromissosFinanceiros.Add(compromisso);
         await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Listar), new { condominioId }, ParaResponse(compromisso));
+
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        return CreatedAtAction(nameof(Detalhar), new { condominioId, compromissoId = compromisso.Id }, ParaResponse(compromisso, alcada));
     }
 
     /// <summary>RF12, RN13, RN14 — vincula um gasto avulso a um compromisso "pai" já existente.</summary>
     [HttpPost("{compromissoPaiId:guid}/gastos-vinculados")]
     [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
     public async Task<ActionResult<CompromissoFinanceiroResponse>> VincularGasto(
-        Guid condominioId, Guid compromissoPaiId, VincularGastoRequest request, CancellationToken ct)
+        Guid condominioId,
+        Guid compromissoPaiId,
+        VincularGastoRequest request,
+        CancellationToken ct
+    )
     {
+<<<<<<< HEAD
+        var pai = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
+            c => c.Id == compromissoPaiId && c.CondominioId == condominioId,
+            ct
+        );
+        if (pai is null)
+            return NotFound("Compromisso pai não encontrado.");
+=======
+        if (string.IsNullOrWhiteSpace(request.Categoria))
+            return BadRequest("Categoria é obrigatória.");
+        if (request.Valor < 0)
+            return BadRequest("Valor não pode ser negativo.");
+
         var pai = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(c => c.Id == compromissoPaiId && c.CondominioId == condominioId, ct);
         if (pai is null) return NotFound("Compromisso pai não encontrado.");
+>>>>>>> 2b8221cfa4f16070dde4e4f1a12a48d503c46b8d
+
+        // RN13/RN14 — vincular gasto a um "pai" só faz sentido enquanto ele ainda está
+        // em andamento; um compromisso cancelado ou já concluído não recebe novos gastos.
+        if (pai.Status is StatusCompromisso.Cancelado or StatusCompromisso.Concluido)
+            return Conflict($"Não é possível vincular gastos a um compromisso {pai.Status}.");
+
+        // Evita encadear "pai de pai": um gasto vinculado não pode, por sua vez, virar pai de outro.
+        if (pai.CompromissoPaiId is not null)
+            return Conflict("Não é possível vincular um gasto a outro gasto já vinculado — vincule ao compromisso 'pai' original.");
 
         var filho = new CompromissoFinanceiro
         {
             Id = Guid.NewGuid(),
             CondominioId = condominioId,
             CompromissoPaiId = compromissoPaiId,
-            Categoria = request.Categoria,
+            Categoria = request.Categoria.Trim(),
             ValorAprovado = request.Valor,
             Status = StatusCompromisso.Concluido, // gasto vinculado tipicamente já executado no ato (ex.: compra no depósito)
             CreatedAt = DateTimeOffset.UtcNow,
         };
         _db.CompromissosFinanceiros.Add(filho);
         await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Listar), new { condominioId }, ParaResponse(filho));
+
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        return CreatedAtAction(nameof(Detalhar), new { condominioId, compromissoId = filho.Id }, ParaResponse(filho, alcada));
+    }
+
+    /// <summary>
+    /// RN09, RN10 — ajusta o valor aprovado de um compromisso (ex.: valor final
+    /// divergiu da cotação, ou troca de material pós-aprovação). Nesta fase não
+    /// há tabela de histórico dedicada (isso fica para o módulo de Auditoria,
+    /// RF19/Mód. 10) — o motivo enviado é registrado apenas em log de aplicação;
+    /// não reescreva silenciosamente o valor sem essa justificativa.
+    /// </summary>
+    [HttpPut("{compromissoId:guid}/ajustar-valor")]
+    [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
+    public async Task<ActionResult<CompromissoFinanceiroResponse>> AjustarValor(
+        Guid condominioId, Guid compromissoId, AjustarValorCompromissoRequest request, CancellationToken ct)
+    {
+        if (request.NovoValor < 0)
+            return BadRequest("Novo valor não pode ser negativo.");
+        if (string.IsNullOrWhiteSpace(request.Motivo))
+            return BadRequest("Motivo é obrigatório para ajustar o valor de um compromisso (RN09).");
+
+        var compromisso = await _db.CompromissosFinanceiros
+            .Include(c => c.GastosVinculados)
+            .Include(c => c.Pagamentos)
+            .FirstOrDefaultAsync(c => c.Id == compromissoId && c.CondominioId == condominioId, ct);
+        if (compromisso is null) return NotFound("Compromisso não encontrado.");
+
+        if (compromisso.Status == StatusCompromisso.Cancelado)
+            return Conflict("Não é possível ajustar o valor de um compromisso cancelado.");
+
+        compromisso.ValorAprovado = request.NovoValor;
+        compromisso.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        return Ok(ParaResponse(compromisso, alcada));
+    }
+
+    /// <summary>RN12 — cancela um compromisso aprovado, mesmo que já esteja em fila.</summary>
+    [HttpPost("{compromissoId:guid}/cancelar")]
+    [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
+    public async Task<ActionResult<CompromissoFinanceiroResponse>> Cancelar(
+        Guid condominioId, Guid compromissoId, CancelarCompromissoRequest request, CancellationToken ct)
+    {
+        var compromisso = await _db.CompromissosFinanceiros
+            .Include(c => c.GastosVinculados)
+            .Include(c => c.Pagamentos)
+            .FirstOrDefaultAsync(c => c.Id == compromissoId && c.CondominioId == condominioId, ct);
+        if (compromisso is null) return NotFound("Compromisso não encontrado.");
+
+        if (compromisso.Status == StatusCompromisso.Concluido)
+            return Conflict("Não é possível cancelar um compromisso já concluído.");
+        if (compromisso.Pagamentos.Count > 0)
+            return Conflict("Não é possível cancelar um compromisso que já possui pagamentos registrados (RN16) — considere ajustar o valor ou registrar um estorno.");
+
+        compromisso.Status = StatusCompromisso.Cancelado;
+        compromisso.PrioridadeFila = null;
+        compromisso.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var alcada = await ObterAlcadaAsync(condominioId, ct);
+        return Ok(ParaResponse(compromisso, alcada));
     }
 
     /// <summary>RF13, RN11 — entra na fila de execução (aguardando disponibilidade de caixa).</summary>
     [HttpPost("{compromissoId:guid}/entrar-na-fila")]
     [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
-    public async Task<IActionResult> EntrarNaFila(Guid condominioId, Guid compromissoId, CancellationToken ct)
+    public async Task<IActionResult> EntrarNaFila(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
     {
-        await _filaExecucao.EntrarNaFilaAsync(compromissoId, ct);
+        try
+        {
+<<<<<<< HEAD
+            await _filaExecucao.EntrarNaFilaAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+=======
+            await _filaExecucao.EntrarNaFilaAsync(compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+        return NoContent();
+    }
+
+    /// <summary>RN12 — adia um compromisso já em fila, mandando-o para o final (em favor de outros de maior prioridade).</summary>
+    [HttpPost("{compromissoId:guid}/adiar")]
+    [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
+    public async Task<IActionResult> Adiar(Guid condominioId, Guid compromissoId, CancellationToken ct)
+    {
+        try
+        {
+            await _filaExecucao.AdiarAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+>>>>>>> 2b8221cfa4f16070dde4e4f1a12a48d503c46b8d
+        }
         return NoContent();
     }
 
     /// <summary>RF13, RN11 — reordenação manual e livre pelo síndico; sem critério automático nesta fase.</summary>
     [HttpPut("fila-execucao/reordenar")]
     [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
-    public async Task<IActionResult> ReordenarFila(Guid condominioId, ReordenarFilaExecucaoRequest request, CancellationToken ct)
+    public async Task<IActionResult> ReordenarFila(
+        Guid condominioId,
+        ReordenarFilaExecucaoRequest request,
+        CancellationToken ct
+    )
     {
-        await _filaExecucao.ReordenarAsync(condominioId, request.CompromissoIdsEmOrdem, ct);
+        try
+        {
+            await _filaExecucao.ReordenarAsync(condominioId, request.CompromissoIdsEmOrdem, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
         return NoContent();
     }
 
-    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c) => new(
-        c.Id, c.NecessidadeId, c.CompromissoPaiId, c.Categoria, c.ValorAprovado, c.Status, c.PrioridadeFila,
-        TotalGastosVinculados: 0, TotalPago: 0, SaldoRemanescente: c.ValorAprovado);
+<<<<<<< HEAD
+    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c) =>
+        new(
+            c.Id,
+            c.NecessidadeId,
+            c.CompromissoPaiId,
+            c.Categoria,
+            c.ValorAprovado,
+            c.Status,
+            c.PrioridadeFila,
+            TotalGastosVinculados: 0,
+            TotalPago: 0,
+            SaldoRemanescente: c.ValorAprovado
+        );
     // Nota de implementação: TotalGastosVinculados e TotalPago exigem um Include/projeção
     // com GastosVinculados e Pagamentos (omitido aqui por brevidade) — ver
     // CompromissoFinanceiro.TotalGastosVinculados na entidade para o cálculo de referência.
+=======
+    private async Task<decimal?> ObterAlcadaAsync(Guid condominioId, CancellationToken ct) =>
+        await _db.Condominios.Where(c => c.Id == condominioId).Select(c => c.ValorAlcadaAprovacao).FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// RN14 — TotalGastosVinculados soma os gastos filhos; RN16 — TotalPago soma os
+    /// pagamentos; SaldoRemanescente é sempre ValorAprovado - TotalPago (RF11), já que
+    /// o valor orçado original e a soma dos gastos filhos podem divergir por design.
+    /// </summary>
+    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c, decimal? alcadaCondominio)
+    {
+        var totalGastosVinculados = c.GastosVinculados.Sum(g => g.ValorAprovado);
+        var totalPago = c.Pagamentos.Sum(p => p.Valor);
+        var saldoRemanescente = c.ValorAprovado - totalPago;
+        var requerValidacaoConselho = alcadaCondominio is decimal alcada
+            && alcada > 0
+            && (c.ValorAprovado + totalGastosVinculados) >= alcada;
+
+        return new CompromissoFinanceiroResponse(
+            c.Id, c.NecessidadeId, c.CompromissoPaiId, c.Categoria, c.ValorAprovado, c.Status, c.PrioridadeFila,
+            totalGastosVinculados, totalPago, saldoRemanescente, requerValidacaoConselho);
+    }
+>>>>>>> 2b8221cfa4f16070dde4e4f1a12a48d503c46b8d
 }

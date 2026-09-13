@@ -64,6 +64,7 @@ public class AppDbContext : DbContext
             e.ToTable("condominio");
             e.HasKey(x => x.Id);
             e.Property(x => x.Nome).HasMaxLength(150).IsRequired();
+            e.Property(x => x.ValorAlcadaAprovacao).HasPrecision(precisaoMoeda, escalaMoeda);
             e.HasOne(x => x.Sindico)
                 .WithMany(u => u.CondominiosAdministrados)
                 .HasForeignKey(x => x.SindicoId)

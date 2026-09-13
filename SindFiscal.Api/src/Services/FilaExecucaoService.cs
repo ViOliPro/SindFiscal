@@ -22,15 +22,40 @@ public class FilaExecucaoService
     }
 
     /// <summary>Move um compromisso aprovado para o fim da fila de execução do seu condomínio.</summary>
-    public async Task EntrarNaFilaAsync(Guid compromissoId, CancellationToken ct = default)
+    public async Task EntrarNaFilaAsync(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct = default
+    )
     {
-        var compromisso = await _db.CompromissosFinanceiros.FindAsync(new object?[] { compromissoId }, ct)
-            ?? throw new InvalidOperationException("Compromisso não encontrado.");
+        var compromisso =
+            await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
+                c => c.Id == compromissoId && c.CondominioId == condominioId,
+                ct
+            )
+            ?? throw new InvalidOperationException("Compromisso não encontrado neste condomínio.");
 
-        var maiorPrioridadeAtual = await _db.CompromissosFinanceiros
-            .Where(c => c.CondominioId == compromisso.CondominioId && c.PrioridadeFila != null)
-            .Select(c => (int?)c.PrioridadeFila)
-            .MaxAsync(ct) ?? 0;
+        if (compromisso.Status == StatusCompromisso.EmFilaExecucao)
+            return; // já na fila — no-op
+
+        if (
+            compromisso.Status
+            is not (StatusCompromisso.AguardandoExecucao or StatusCompromisso.EmExecucao)
+        )
+        {
+            throw new InvalidOperationException(
+                $"Status atual ({compromisso.Status}) não permite entrar na fila."
+            );
+        }
+
+        var maiorPrioridadeAtual =
+            await _db
+                .CompromissosFinanceiros.Where(c =>
+                    c.CondominioId == condominioId && c.PrioridadeFila != null
+                )
+                .Select(c => (int?)c.PrioridadeFila)
+                .MaxAsync(ct)
+            ?? 0;
 
         compromisso.Status = StatusCompromisso.EmFilaExecucao;
         compromisso.PrioridadeFila = maiorPrioridadeAtual + 1;
@@ -38,20 +63,26 @@ public class FilaExecucaoService
         await _db.SaveChangesAsync(ct);
     }
 
-    /// <summary>
-    /// RF13 — reordenação manual e livre pelo síndico. A lista recebida define a
-    /// nova ordem integral da fila daquele condomínio (índice 0 = maior prioridade).
-    /// </summary>
-    public async Task ReordenarAsync(Guid condominioId, IReadOnlyList<Guid> compromissoIdsEmOrdem, CancellationToken ct = default)
+    public async Task ReordenarAsync(
+        Guid condominioId,
+        IReadOnlyList<Guid> compromissoIdsEmOrdem,
+        CancellationToken ct = default
+    )
     {
-        var compromissos = await _db.CompromissosFinanceiros
-            .Where(c => c.CondominioId == condominioId && c.Status == StatusCompromisso.EmFilaExecucao)
+        var compromissos = await _db
+            .CompromissosFinanceiros.Where(c =>
+                c.CondominioId == condominioId && c.Status == StatusCompromisso.EmFilaExecucao
+            )
             .ToDictionaryAsync(c => c.Id, ct);
 
-        if (compromissoIdsEmOrdem.Count != compromissos.Count || compromissoIdsEmOrdem.Any(id => !compromissos.ContainsKey(id)))
+        if (
+            compromissoIdsEmOrdem.Count != compromissos.Count
+            || compromissoIdsEmOrdem.Any(id => !compromissos.ContainsKey(id))
+        )
         {
             throw new InvalidOperationException(
-                "A lista enviada precisa conter exatamente os compromissos atualmente em fila deste condomínio.");
+                "A lista enviada precisa conter exatamente os compromissos atualmente em fila deste condomínio."
+            );
         }
 
         for (var indice = 0; indice < compromissoIdsEmOrdem.Count; indice++)

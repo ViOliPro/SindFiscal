@@ -7,6 +7,17 @@ public class Condominio
     public Guid SindicoId { get; set; }
     public string Nome { get; set; } = null!;
     public bool PossuiIntegracaoApi { get; set; }
+
+    /// <summary>
+    /// RF10, RN07 — valor de alçada a partir do qual um compromisso exigiria
+    /// validação do Conselho Fiscal. Configurável por condomínio (não há
+    /// padrão único). Null = sem alçada definida para este condomínio.
+    /// Nesta fase o sistema apenas sinaliza (RequerValidacaoConselho no
+    /// CompromissoFinanceiroResponse); a formalização de um fluxo de
+    /// aprovação pelo Conselho foi deliberadamente adiada (Seção 11).
+    /// </summary>
+    public decimal? ValorAlcadaAprovacao { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 

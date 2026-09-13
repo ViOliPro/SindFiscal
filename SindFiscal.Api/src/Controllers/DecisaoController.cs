@@ -68,6 +68,26 @@ public class DecisaoController : ControllerBase
         if (necessidade is null)
             return NotFound("Necessidade não encontrada neste condomínio.");
 
+        decimal valorAprovado = 0m;
+        if (request.CotacaoEscolhidaId is Guid cotacaoId)
+        {
+            // RN06 — a cotação escolhida precisa pertencer à mesma necessidade,
+            // nunca a uma cotação de outra necessidade (id "emprestado" por engano).
+            var cotacao = await _db.Cotacoes.FirstOrDefaultAsync(
+                c => c.Id == cotacaoId && c.NecessidadeId == necessidadeId,
+                ct
+            );
+            if (cotacao is null)
+                return BadRequest("Cotação informada não pertence a esta necessidade.");
+            valorAprovado = cotacao.Valor;
+        }
+        else if (request.Resultado == ResultadoDecisao.Aprovado)
+        {
+            // RN08 — despesa emergencial pode pular a etapa de cotação prévia;
+            // quando aprovada sem cotação, o valor vem no próprio compromisso avulso depois.
+            valorAprovado = 0m;
+        }
+
         var responsavelId = HttpContext.UsuarioIdAutenticado();
         var decisao = new Decisao
         {
@@ -95,13 +115,6 @@ public class DecisaoController : ControllerBase
         // RF10 — decisão de aprovação gera automaticamente o compromisso financeiro.
         if (request.Resultado == ResultadoDecisao.Aprovado)
         {
-            var valorAprovado = request.CotacaoEscolhidaId is Guid cotacaoId
-                ? await _db
-                    .Cotacoes.Where(c => c.Id == cotacaoId)
-                    .Select(c => c.Valor)
-                    .SingleAsync(ct)
-                : 0m;
-
             _db.CompromissosFinanceiros.Add(
                 new CompromissoFinanceiro
                 {
