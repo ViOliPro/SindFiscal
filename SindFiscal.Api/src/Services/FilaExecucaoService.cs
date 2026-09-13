@@ -39,7 +39,31 @@ public class FilaExecucaoService
     }
 
     /// <summary>
-    /// RF13 — reordenação manual e livre pelo síndico. A lista recebida define a
+    /// RN12 — adia um compromisso que já está na fila, mandando-o para o final
+    /// (menor prioridade) em favor de outros. Não remove da fila nem altera o
+    /// Status — apenas reordena; o síndico decide depois se cancela de vez.
+    /// </summary>
+    public async Task AdiarAsync(Guid condominioId, Guid compromissoId, CancellationToken ct = default)
+    {
+        var compromisso = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
+            c => c.Id == compromissoId && c.CondominioId == condominioId, ct)
+            ?? throw new InvalidOperationException("Compromisso não encontrado.");
+
+        if (compromisso.Status != StatusCompromisso.EmFilaExecucao)
+            throw new InvalidOperationException("Só é possível adiar um compromisso que já está na fila de execução.");
+
+        var maiorPrioridadeAtual = await _db.CompromissosFinanceiros
+            .Where(c => c.CondominioId == condominioId && c.Status == StatusCompromisso.EmFilaExecucao && c.PrioridadeFila != null)
+            .Select(c => (int?)c.PrioridadeFila)
+            .MaxAsync(ct) ?? 0;
+
+        compromisso.PrioridadeFila = maiorPrioridadeAtual + 1;
+        compromisso.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// RF13, RN11 — reordenação manual e livre pelo síndico. A lista recebida define a
     /// nova ordem integral da fila daquele condomínio (índice 0 = maior prioridade).
     /// </summary>
     public async Task ReordenarAsync(Guid condominioId, IReadOnlyList<Guid> compromissoIdsEmOrdem, CancellationToken ct = default)

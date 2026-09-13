@@ -1,12 +1,17 @@
 import { apiFetch } from '@/lib/api'
 import type {
   Condominio,
+  CompromissoFinanceiro,
+  CompromissoFinanceiroDetalhe,
   ContaBancaria,
+  Decisao,
   FinalidadeConta,
   Lancamento,
   LoginResponse,
   NivelPermissao,
   Permissao,
+  ResultadoDecisao,
+  StatusCompromisso,
   TipoLancamento,
   TipoRegraAporte,
   Usuario,
@@ -127,5 +132,110 @@ export function estornarLancamento(
   return apiFetch<Lancamento>(
     `/condominios/${condominioId}/lancamentos/${lancamentoId}/estornar`,
     { method: 'POST', body: JSON.stringify({ motivo }) },
+  )
+}
+
+// ---------------------------------------------------------------- Decisões (RF09, Mód. 3)
+
+export function listarDecisoes(condominioId: string, necessidadeId: string) {
+  return apiFetch<Decisao[]>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/decisoes`,
+  )
+}
+
+export function registrarDecisao(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    cotacaoEscolhidaId?: string | null
+    resultado: ResultadoDecisao
+    justificativa?: string
+    referenciaRespaldo?: string
+    data: string
+  },
+) {
+  return apiFetch<Decisao>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/decisoes`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+// ---------------------------------------------------------------- Compromissos (RF10/RF12/RF13, Mód. 3)
+
+export function listarCompromissos(condominioId: string, status?: StatusCompromisso) {
+  const qs = status ? `?status=${status}` : ''
+  return apiFetch<CompromissoFinanceiro[]>(
+    `/condominios/${condominioId}/compromissos${qs}`,
+  )
+}
+
+export function obterCompromisso(condominioId: string, compromissoId: string) {
+  return apiFetch<CompromissoFinanceiroDetalhe>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}`,
+  )
+}
+
+export function criarCompromissoAvulso(
+  condominioId: string,
+  data: { categoria: string; valorAprovado: number },
+) {
+  return apiFetch<CompromissoFinanceiro>(
+    `/condominios/${condominioId}/compromissos/avulsos`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+export function vincularGasto(
+  condominioId: string,
+  compromissoPaiId: string,
+  data: { categoria: string; valor: number },
+) {
+  return apiFetch<CompromissoFinanceiro>(
+    `/condominios/${condominioId}/compromissos/${compromissoPaiId}/gastos-vinculados`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+export function ajustarValorCompromisso(
+  condominioId: string,
+  compromissoId: string,
+  novoValor: number,
+  motivo: string,
+) {
+  return apiFetch<CompromissoFinanceiro>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/ajustar-valor`,
+    { method: 'PUT', body: JSON.stringify({ novoValor, motivo }) },
+  )
+}
+
+export function cancelarCompromisso(
+  condominioId: string,
+  compromissoId: string,
+  motivo?: string,
+) {
+  return apiFetch<CompromissoFinanceiro>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/cancelar`,
+    { method: 'POST', body: JSON.stringify({ motivo }) },
+  )
+}
+
+export function entrarNaFila(condominioId: string, compromissoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/entrar-na-fila`,
+    { method: 'POST' },
+  )
+}
+
+export function adiarCompromisso(condominioId: string, compromissoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/adiar`,
+    { method: 'POST' },
+  )
+}
+
+export function reordenarFila(condominioId: string, compromissoIdsEmOrdem: string[]) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/fila-execucao/reordenar`,
+    { method: 'PUT', body: JSON.stringify({ compromissoIdsEmOrdem }) },
   )
 }
