@@ -49,6 +49,19 @@ builder.Services.AddAuthorization(opt =>
     opt.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
+// ---------------------------------------------------------------- CORS (front Vite)
+builder.Services.AddCors(opt =>
+{
+    opt.AddPolicy("Front", policy =>
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+    );
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -57,6 +70,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment()) { }
 
 app.UseHttpsRedirection();
+app.UseCors("Front");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

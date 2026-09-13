@@ -10,6 +10,11 @@ public class Usuario
     public string Email { get; set; } = null!;
     public PapelUsuario Papel { get; set; }
     public bool Ativo { get; set; } = true;
+
+    /// <summary>Hash da senha (SHA256 v1). Nullable para permitir bootstrap/migration.
+    /// Coluna ainda não está no schema.sql — adicionar via migration: senha_hash varchar(128).</summary>
+    public string? SenhaHash { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 
