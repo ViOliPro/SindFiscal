@@ -35,7 +35,10 @@ public class CompromissoFinanceiroController : ControllerBase
         CancellationToken ct
     )
     {
-        var query = _db.CompromissosFinanceiros.Where(c => c.CondominioId == condominioId);
+        var query = _db
+            .CompromissosFinanceiros.Include(c => c.GastosVinculados)
+            .Include(c => c.Pagamentos)
+            .Where(c => c.CondominioId == condominioId);
         if (status is not null)
             query = query.Where(c => c.Status == status);
 
@@ -132,6 +135,11 @@ public class CompromissoFinanceiroController : ControllerBase
         CancellationToken ct
     )
     {
+        if (string.IsNullOrWhiteSpace(request.Categoria))
+            return BadRequest("Categoria é obrigatória.");
+        if (request.Valor < 0)
+            return BadRequest("Valor não pode ser negativo.");
+
         var pai = await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
             c => c.Id == compromissoPaiId && c.CondominioId == condominioId,
             ct
@@ -260,7 +268,27 @@ public class CompromissoFinanceiroController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new { message = ex.Message });
+            return Conflict(ex.Message);
+        }
+        return NoContent();
+    }
+
+    /// <summary>RN12 — adia um compromisso já em fila, mandando-o para o final (em favor de outros de maior prioridade).</summary>
+    [HttpPost("{compromissoId:guid}/adiar")]
+    [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
+    public async Task<IActionResult> Adiar(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await _filaExecucao.AdiarAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
         }
         return NoContent();
     }
@@ -285,8 +313,31 @@ public class CompromissoFinanceiroController : ControllerBase
         return NoContent();
     }
 
-    private static CompromissoFinanceiroResponse ParaResponse(CompromissoFinanceiro c) =>
-        new(
+    private async Task<decimal?> ObterAlcadaAsync(Guid condominioId, CancellationToken ct) =>
+        await _db
+            .Condominios.Where(c => c.Id == condominioId)
+            .Select(c => c.ValorAlcadaAprovacao)
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// RN14 — TotalGastosVinculados soma os gastos filhos; RN16 — TotalPago soma os
+    /// pagamentos; SaldoRemanescente é sempre ValorAprovado - TotalPago (RF11), já que
+    /// o valor orçado original e a soma dos gastos filhos podem divergir por design.
+    /// </summary>
+    private static CompromissoFinanceiroResponse ParaResponse(
+        CompromissoFinanceiro c,
+        decimal? alcadaCondominio
+    )
+    {
+        var totalGastosVinculados = c.GastosVinculados.Sum(g => g.ValorAprovado);
+        var totalPago = c.Pagamentos.Sum(p => p.Valor);
+        var saldoRemanescente = c.ValorAprovado - totalPago;
+        var requerValidacaoConselho =
+            alcadaCondominio is decimal alcada
+            && alcada > 0
+            && (c.ValorAprovado + totalGastosVinculados) >= alcada;
+
+        return new CompromissoFinanceiroResponse(
             c.Id,
             c.NecessidadeId,
             c.CompromissoPaiId,
@@ -294,11 +345,10 @@ public class CompromissoFinanceiroController : ControllerBase
             c.ValorAprovado,
             c.Status,
             c.PrioridadeFila,
-            TotalGastosVinculados: 0,
-            TotalPago: 0,
-            SaldoRemanescente: c.ValorAprovado
+            totalGastosVinculados,
+            totalPago,
+            saldoRemanescente,
+            requerValidacaoConselho
         );
-    // Nota de implementação: TotalGastosVinculados e TotalPago exigem um Include/projeção
-    // com GastosVinculados e Pagamentos (omitido aqui por brevidade) — ver
-    // CompromissoFinanceiro.TotalGastosVinculados na entidade para o cálculo de referência.
+    }
 }

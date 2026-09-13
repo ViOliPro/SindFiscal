@@ -63,6 +63,39 @@ public class FilaExecucaoService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task AdiarAsync(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct = default
+    )
+    {
+        var compromisso =
+            await _db.CompromissosFinanceiros.FirstOrDefaultAsync(
+                c => c.Id == compromissoId && c.CondominioId == condominioId,
+                ct
+            ) ?? throw new InvalidOperationException("Compromisso não encontrado.");
+
+        if (compromisso.Status != StatusCompromisso.EmFilaExecucao)
+            throw new InvalidOperationException(
+                "Só é possível adiar um compromisso que já está na fila de execução."
+            );
+
+        var maiorPrioridadeAtual =
+            await _db
+                .CompromissosFinanceiros.Where(c =>
+                    c.CondominioId == condominioId
+                    && c.Status == StatusCompromisso.EmFilaExecucao
+                    && c.PrioridadeFila != null
+                )
+                .Select(c => (int?)c.PrioridadeFila)
+                .MaxAsync(ct)
+            ?? 0;
+
+        compromisso.PrioridadeFila = maiorPrioridadeAtual + 1;
+        compromisso.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task ReordenarAsync(
         Guid condominioId,
         IReadOnlyList<Guid> compromissoIdsEmOrdem,
