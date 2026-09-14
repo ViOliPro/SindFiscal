@@ -35,6 +35,7 @@ CREATE TABLE usuario (
     papel           varchar(20) NOT NULL
                         CHECK (papel IN ('sindico', 'colaborador', 'conselheiro_fiscal')),
     ativo           boolean NOT NULL DEFAULT true,
+    senha_hash      varchar(255),   -- RF01 — hash simples v1 (SHA256+salt); nulo = bootstrap sem senha definida
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz
 );

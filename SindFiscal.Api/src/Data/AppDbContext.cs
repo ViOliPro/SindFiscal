@@ -56,6 +56,10 @@ public class AppDbContext : DbContext
                 .HasConversion(SnakeCaseEnumConverter.Create<PapelUsuario>())
                 .HasMaxLength(20)
                 .IsRequired();
+            // v1 — hash simples (SHA256+salt, ver AuthController.HashSenha); nullable
+            // porque usuários existentes antes desta coluna ainda não têm hash
+            // (aceitos em modo bootstrap até definirem senha — ver AuthController.Login).
+            e.Property(x => x.SenhaHash).HasMaxLength(255);
         });
 
         // ---------------------------------------------------------------- CONDOMINIO
