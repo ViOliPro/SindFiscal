@@ -445,6 +445,7 @@ public class AppDbContext : DbContext
             e.HasIndex(x => new { x.EntidadeTipo, x.EntidadeId });
             e.HasIndex(x => x.UsuarioId);
             e.HasIndex(x => x.DataHora);
+            e.HasIndex(x => x.CondominioId);
             e.HasOne(x => x.Usuario)
                 .WithMany()
                 .HasForeignKey(x => x.UsuarioId)

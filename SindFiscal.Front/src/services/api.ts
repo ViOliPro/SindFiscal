@@ -4,13 +4,20 @@ import type {
   CompromissoFinanceiro,
   CompromissoFinanceiroDetalhe,
   ContaBancaria,
+  Cotacao,
+  ComparativoCotacoes,
   Decisao,
   FinalidadeConta,
+  Fornecedor,
   Lancamento,
   LoginResponse,
+  Necessidade,
   NivelPermissao,
   Permissao,
+  Prioridade,
+  RegistroAuditoria,
   ResultadoDecisao,
+  SituacaoNecessidade,
   StatusCompromisso,
   TipoLancamento,
   TipoRegraAporte,
@@ -237,5 +244,140 @@ export function reordenarFila(condominioId: string, compromissoIdsEmOrdem: strin
   return apiFetch<void>(
     `/condominios/${condominioId}/compromissos/fila-execucao/reordenar`,
     { method: 'PUT', body: JSON.stringify({ compromissoIdsEmOrdem }) },
+  )
+}
+
+// ---------------------------------------------------------------- Necessidades (RF06, Mód. 2)
+
+export function listarNecessidades(condominioId: string, situacao?: SituacaoNecessidade) {
+  const qs = situacao ? `?situacao=${situacao}` : ''
+  return apiFetch<Necessidade[]>(`/condominios/${condominioId}/necessidades${qs}`)
+}
+
+export function criarNecessidade(
+  condominioId: string,
+  data: {
+    descricao: string
+    categoria: string
+    prioridade?: Prioridade | null
+    escopoTexto?: string | null
+    responsavelId?: string | null
+  },
+) {
+  return apiFetch<Necessidade>(`/condominios/${condominioId}/necessidades`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function atualizarNecessidade(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    descricao: string
+    categoria: string
+    prioridade?: Prioridade | null
+    escopoTexto?: string | null
+    responsavelId?: string | null
+  },
+) {
+  return apiFetch<Necessidade>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}`,
+    { method: 'PUT', body: JSON.stringify(data) },
+  )
+}
+
+export function atualizarSituacaoNecessidade(
+  condominioId: string,
+  necessidadeId: string,
+  situacao: SituacaoNecessidade,
+) {
+  return apiFetch<Necessidade>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/situacao`,
+    { method: 'PATCH', body: JSON.stringify({ situacao }) },
+  )
+}
+
+// ---------------------------------------------------------------- Cotações (RF07, Mód. 2)
+
+export function listarCotacoes(condominioId: string, necessidadeId: string) {
+  return apiFetch<Cotacao[]>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes`,
+  )
+}
+
+export function comparativoCotacoes(condominioId: string, necessidadeId: string) {
+  return apiFetch<ComparativoCotacoes>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes/comparativo`,
+  )
+}
+
+export function registrarCotacao(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    fornecedorId: string
+    valor: number
+    prazoExecucaoDias?: number | null
+    garantiaDescricao?: string | null
+    condicoesPagamento?: string | null
+    validade?: string | null
+  },
+) {
+  return apiFetch<Cotacao>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+// ---------------------------------------------------------------- Fornecedores (RF08, Mód. 2)
+// Rota não aninhada em /condominios/{id} — fornecedor é do síndico, não do
+// condomínio (RN04); o backend resolve o síndico pelo usuário autenticado.
+
+export function listarFornecedores(categoria?: string) {
+  const qs = categoria ? `?categoria=${encodeURIComponent(categoria)}` : ''
+  return apiFetch<Fornecedor[]>(`/fornecedores${qs}`)
+}
+
+export function criarFornecedor(data: { nome: string; categoria: string }) {
+  return apiFetch<Fornecedor>('/fornecedores', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function atualizarFornecedor(
+  fornecedorId: string,
+  data: { nome: string; categoria: string },
+) {
+  return apiFetch<Fornecedor>(`/fornecedores/${fornecedorId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export function avaliarFornecedor(
+  fornecedorId: string,
+  data: { nota: number; comentario?: string | null },
+) {
+  return apiFetch<Fornecedor>(`/fornecedores/${fornecedorId}/avaliar`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// ---------------------------------------------------------------- Auditoria (RF19, Mód. 10)
+
+export function listarAuditoria(
+  condominioId: string,
+  params?: { entidadeTipo?: string; entidadeId?: string; limite?: number },
+) {
+  const q = new URLSearchParams()
+  if (params?.entidadeTipo) q.set('entidadeTipo', params.entidadeTipo)
+  if (params?.entidadeId) q.set('entidadeId', params.entidadeId)
+  if (params?.limite) q.set('limite', String(params.limite))
+  const qs = q.toString()
+  return apiFetch<RegistroAuditoria[]>(
+    `/condominios/${condominioId}/auditoria${qs ? `?${qs}` : ''}`,
   )
 }

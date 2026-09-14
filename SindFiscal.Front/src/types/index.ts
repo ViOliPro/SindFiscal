@@ -35,6 +35,15 @@ export type StatusCompromisso =
   | 'cancelado'
 export type TipoPagamento = 'entrada' | 'adiantamento' | 'parcela' | 'total'
 
+export type Prioridade = 'alta' | 'media' | 'baixa'
+export type SituacaoNecessidade =
+  | 'em_analise'
+  | 'em_orcamento'
+  | 'aprovado'
+  | 'reprovado'
+  | 'adiado'
+  | 'executado'
+
 export interface Usuario {
   id: string
   nome: string
@@ -133,6 +142,61 @@ export interface CompromissoFinanceiroDetalhe {
   pagamentos: PagamentoResumo[]
 }
 
+// ---------------------------------------------------------------- Necessidades / Cotações / Fornecedores (Mód. 2)
+
+export interface Necessidade {
+  id: string
+  descricao: string
+  categoria: string
+  prioridade: Prioridade | null
+  escopoTexto: string | null
+  situacao: SituacaoNecessidade
+  responsavelId: string | null
+}
+
+export interface Cotacao {
+  id: string
+  necessidadeId: string
+  fornecedorId: string
+  fornecedorNome: string
+  valor: number
+  prazoExecucaoDias: number | null
+  garantiaDescricao: string | null
+  condicoesPagamento: string | null
+  validade: string | null
+}
+
+export interface ComparativoCotacoes {
+  necessidadeId: string
+  cotacoes: Cotacao[]
+  menorValor: number
+  maiorValor: number
+  diferenca: number
+  fornecedorMaisBaratoId: string
+}
+
+export interface Fornecedor {
+  id: string
+  nome: string
+  categoria: string
+  avaliacaoNota: number | null
+  avaliacaoComentario: string | null
+}
+
+// ---------------------------------------------------------------- Auditoria (RF19, Mód. 10)
+
+export interface RegistroAuditoria {
+  id: string
+  entidadeTipo: string
+  entidadeId: string
+  usuarioId: string
+  usuarioNome: string
+  dataHora: string
+  campoAlterado: string
+  valorAnterior: string | null
+  valorNovo: string | null
+}
+
 export const STATUS_COMPROMISSO_LABEL: Record<StatusCompromisso, string> = {
   aguardando_execucao: 'Aguardando execução',
   em_fila_execucao: 'Em fila de execução',
@@ -145,6 +209,21 @@ export const RESULTADO_DECISAO_LABEL: Record<ResultadoDecisao, string> = {
   aprovado: 'Aprovado',
   reprovado: 'Reprovado',
   adiado: 'Adiado',
+}
+
+export const SITUACAO_NECESSIDADE_LABEL: Record<SituacaoNecessidade, string> = {
+  em_analise: 'Em análise',
+  em_orcamento: 'Em orçamento',
+  aprovado: 'Aprovado',
+  reprovado: 'Reprovado',
+  adiado: 'Adiado',
+  executado: 'Executado',
+}
+
+export const PRIORIDADE_LABEL: Record<Prioridade, string> = {
+  alta: 'Alta',
+  media: 'Média',
+  baixa: 'Baixa',
 }
 
 export const MODULOS_LABEL: Record<string, string> = {

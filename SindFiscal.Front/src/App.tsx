@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { ContasPage } from '@/pages/ContasPage'
+import { NecessidadesPage } from '@/pages/NecessidadesPage'
 import { CompromissosPage } from '@/pages/CompromissosPage'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -41,7 +42,7 @@ export default function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="contas" element={<ContasPage />} />
-          <Route path="necessidades" element={<Placeholder title="Necessidades, Cotações e Fornecedores" />} />
+          <Route path="necessidades" element={<NecessidadesPage />} />
           <Route path="compromissos" element={<CompromissosPage />} />
           <Route path="pagamentos" element={<Placeholder title="Pagamentos e Fila de Execução" />} />
           <Route path="acerto" element={<Placeholder title="Área de Acerto" />} />

@@ -66,7 +66,7 @@ O resto (`Controllers/`) é majoritariamente CRUD mapeado 1:1 aos RFs, sem surpr
 ## O que fica fora deste pacote
 
 - Hash de senha real (`AuthController` tem um placeholder explícito, comentado no código — não usar em produção).
-- Interceptor de auditoria automática (`RegistroAuditoria` está modelado e com controller de leitura, mas nada popula a tabela ainda — normalmente isso seria um `SaveChanges` interceptor no `AppDbContext`, fora do escopo deste pacote).
+- Interceptor de auditoria automática (implementado nesta rodada — ver `Services/AuditoriaSaveChangesInterceptor.cs`, registrado em `Program.cs` via `AddInterceptors`, e `Controllers/AuditoriaController.cs` para leitura).
 - Testes automatizados (unitários/integração).
 - Upload de arquivo real (RF20 — decisão de escopo já registrada na Especificação).
 - Estrutura de configuração de API por administradora (RF15 — aguardando levantamento de custo/cobertura).

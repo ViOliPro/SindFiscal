@@ -11,9 +11,13 @@ using SindFiscal.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
-        .UseSnakeCaseNamingConvention()
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditoriaSaveChangesInterceptor>();
+builder.Services.AddDbContext<AppDbContext>(
+    (sp, opt) =>
+        opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+            .UseSnakeCaseNamingConvention()
+            .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>())
 ); // pacote EFCore.NamingConventions — ver README.md
 
 // ---------------------------------------------------------------- Serviços de domínio
