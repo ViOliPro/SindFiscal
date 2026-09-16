@@ -55,4 +55,3 @@ public record AjustarValorCompromissoRequest(decimal NovoValor, string Motivo);
 
 /// <summary>RN12 — cancelamento de um compromisso aprovado, mesmo já em fila.</summary>
 public record CancelarCompromissoRequest(string? Motivo);
-

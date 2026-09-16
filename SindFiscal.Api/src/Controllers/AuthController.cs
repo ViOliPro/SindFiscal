@@ -33,23 +33,34 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
     {
-        var usuario = await _db.Usuarios
-            .Include(u => u.Permissoes)
+        var usuario = await _db
+            .Usuarios.Include(u => u.Permissoes)
             .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, ct);
-
+        Console.WriteLine($"Usuario encontrado: {usuario?.Email ?? "null"}");
         if (usuario is null)
             return Unauthorized(new { message = "Credenciais inválidas." });
 
         // Sem SenhaHash cadastrada: aceita qualquer senha em ambiente de desenvolvimento
         // (bootstrap). Com hash: valida.
-        if (!string.IsNullOrEmpty(usuario.SenhaHash) && !VerificarSenha(request.Senha, usuario.SenhaHash))
+        if (
+            !string.IsNullOrEmpty(usuario.SenhaHash)
+            && !VerificarSenha(request.Senha, usuario.SenhaHash)
+        )
             return Unauthorized(new { message = "Credenciais inválidas." });
 
         var token = GerarToken(usuario);
-        return Ok(new LoginResponse(
-            token,
-            new UsuarioResponse(usuario.Id, usuario.Nome, usuario.Email, usuario.Papel, usuario.Ativo)
-        ));
+        return Ok(
+            new LoginResponse(
+                token,
+                new UsuarioResponse(
+                    usuario.Id,
+                    usuario.Nome,
+                    usuario.Email,
+                    usuario.Papel,
+                    usuario.Ativo
+                )
+            )
+        );
     }
 
     /// <summary>Bootstrap: cria o primeiro síndico se a base estiver vazia.</summary>
@@ -57,7 +68,8 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<LoginResponse>> Bootstrap(
         [FromBody] BootstrapRequest request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         if (await _db.Usuarios.AnyAsync(ct))
             return Conflict(new { message = "Já existem usuários. Use /auth/login." });
@@ -76,10 +88,18 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync(ct);
 
         var token = GerarToken(usuario);
-        return Ok(new LoginResponse(
-            token,
-            new UsuarioResponse(usuario.Id, usuario.Nome, usuario.Email, usuario.Papel, usuario.Ativo)
-        ));
+        return Ok(
+            new LoginResponse(
+                token,
+                new UsuarioResponse(
+                    usuario.Id,
+                    usuario.Nome,
+                    usuario.Email,
+                    usuario.Papel,
+                    usuario.Ativo
+                )
+            )
+        );
     }
 
     [HttpGet("me")]
@@ -90,14 +110,16 @@ public class AuthController : ControllerBase
             return Unauthorized();
 
         var u = await _db.Usuarios.FindAsync(new object[] { id }, ct);
-        if (u is null || !u.Ativo) return Unauthorized();
+        if (u is null || !u.Ativo)
+            return Unauthorized();
 
         return Ok(new UsuarioResponse(u.Id, u.Nome, u.Email, u.Papel, u.Ativo));
     }
 
     private string GerarToken(Usuario usuario)
     {
-        var chave = _cfg["Jwt:ChaveSecreta"]
+        var chave =
+            _cfg["Jwt:ChaveSecreta"]
             ?? throw new InvalidOperationException("Jwt:ChaveSecreta ausente.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chave));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -111,8 +133,8 @@ public class AuthController : ControllerBase
         };
 
         var token = new JwtSecurityToken(
-            issuer: _cfg["Jwt:Emissor"],
-            audience: _cfg["Jwt:Audiencia"],
+            issuer: _cfg["Jwt:Issuer"],
+            audience: _cfg["Jwt:Audience"],
             claims: claims,
             expires: DateTime.UtcNow.AddHours(12),
             signingCredentials: creds

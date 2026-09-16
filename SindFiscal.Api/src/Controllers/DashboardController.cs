@@ -132,7 +132,8 @@ public class DashboardController : ControllerBase
                 c.PrioridadeFila,
                 0,
                 0,
-                c.ValorAprovado
+                c.ValorAprovado,
+                false
             ))
             .ToListAsync(ct);
 

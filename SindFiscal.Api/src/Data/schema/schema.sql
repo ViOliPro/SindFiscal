@@ -31,8 +31,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto; -- fornece gen_random_uuid()
 CREATE TABLE usuario (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     nome            varchar(150) NOT NULL,
-    email           varchar(200) NOT NULL UNIQUE,
     papel           varchar(20) NOT NULL
+    email           varchar(200) NOT NULL UNIQUE,
+    senha_hash      varchar(200) NOT NULL UNIQUE,
                         CHECK (papel IN ('sindico', 'colaborador', 'conselheiro_fiscal')),
     ativo           boolean NOT NULL DEFAULT true,
     created_at      timestamptz NOT NULL DEFAULT now(),
