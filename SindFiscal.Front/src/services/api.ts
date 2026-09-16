@@ -7,20 +7,27 @@ import type {
   Cotacao,
   ComparativoCotacoes,
   Decisao,
+  Documento,
+  EntidadeDocumento,
   FinalidadeConta,
   Fornecedor,
   Lancamento,
   LoginResponse,
   Necessidade,
   NivelPermissao,
+  AreaDeAcerto,
+  Pagamento,
   Permissao,
   Prioridade,
   RegistroAuditoria,
+  Reserva,
   ResultadoDecisao,
   SituacaoNecessidade,
   StatusCompromisso,
   TipoLancamento,
+  TipoPagamento,
   TipoRegraAporte,
+  Transferencia,
   Usuario,
 } from '@/types'
 
@@ -380,4 +387,146 @@ export function listarAuditoria(
   return apiFetch<RegistroAuditoria[]>(
     `/condominios/${condominioId}/auditoria${qs ? `?${qs}` : ''}`,
   )
+}
+
+// ---------------------------------------------------------------- Pagamentos (RF11, Mód. 4)
+
+export function listarPagamentos(condominioId: string, compromissoId: string) {
+  return apiFetch<Pagamento[]>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/pagamentos`,
+  )
+}
+
+export function registrarPagamento(
+  condominioId: string,
+  compromissoId: string,
+  data: {
+    fundoResponsavelId: string
+    tipo: TipoPagamento
+    valor: number
+    data: string
+    lancamentoIdParaReconciliar?: string | null
+  },
+) {
+  return apiFetch<Pagamento>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/pagamentos`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+// ---------------------------------------------------------------- Área de Acerto (RF14, Mód. 5)
+
+export function listarAreaDeAcerto(condominioId: string) {
+  return apiFetch<AreaDeAcerto>(`/condominios/${condominioId}/area-de-acerto`)
+}
+
+export function consolidarTransferencias(condominioId: string, transferenciaIdsParaConsolidar: string[]) {
+  return apiFetch<Transferencia>(`/condominios/${condominioId}/area-de-acerto/consolidar`, {
+    method: 'POST',
+    body: JSON.stringify({ transferenciaIdsParaConsolidar }),
+  })
+}
+
+export function confirmarExecucaoTransferencia(
+  condominioId: string,
+  transferenciaId: string,
+  dataExecucao: string,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/area-de-acerto/${transferenciaId}/confirmar-execucao`,
+    { method: 'POST', body: JSON.stringify({ dataExecucao }) },
+  )
+}
+
+export function acumularAporte(
+  condominioId: string,
+  fundoId: string,
+  baseDeCalculoPercentual?: number | null,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/area-de-acerto/fundos/${fundoId}/acumular-aporte`,
+    { method: 'POST', body: JSON.stringify({ baseDeCalculoPercentual: baseDeCalculoPercentual ?? null }) },
+  )
+}
+
+export function compensarAporte(condominioId: string, fundoId: string, valorAExecutar: number) {
+  return apiFetch<Transferencia>(
+    `/condominios/${condominioId}/area-de-acerto/fundos/${fundoId}/compensar-aporte`,
+    { method: 'POST', body: JSON.stringify({ valorAExecutar }) },
+  )
+}
+
+// ---------------------------------------------------------------- Reservas de área comum (RF21, Mód. 9)
+
+export function listarReservas(
+  condominioId: string,
+  params?: { fundoDestinoId?: string; periodoReferencia?: string },
+) {
+  const q = new URLSearchParams()
+  if (params?.fundoDestinoId) q.set('fundoDestinoId', params.fundoDestinoId)
+  if (params?.periodoReferencia) q.set('periodoReferencia', params.periodoReferencia)
+  const qs = q.toString()
+  return apiFetch<Reserva[]>(`/condominios/${condominioId}/reservas${qs ? `?${qs}` : ''}`)
+}
+
+export function registrarReserva(
+  condominioId: string,
+  data: {
+    fundoDestinoId: string
+    unidade: string
+    moradorNome: string
+    valorDestinadoAoFundo: number
+    pagoComDesconto?: boolean | null
+    periodoReferencia: string
+  },
+) {
+  return apiFetch<Reserva>(`/condominios/${condominioId}/reservas`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function fecharPeriodoReservas(
+  condominioId: string,
+  fundoDestinoId: string,
+  periodoReferencia: string,
+) {
+  return apiFetch<Transferencia>(`/condominios/${condominioId}/reservas/fechar-periodo`, {
+    method: 'POST',
+    body: JSON.stringify({ fundoDestinoId, periodoReferencia }),
+  })
+}
+
+// ---------------------------------------------------------------- Documentos (RF20, Mód. 8)
+
+export function listarDocumentos(condominioId: string, entidadeTipo: EntidadeDocumento, entidadeId: string) {
+  return apiFetch<Documento[]>(
+    `/condominios/${condominioId}/documentos?entidadeTipo=${entidadeTipo}&entidadeId=${entidadeId}`,
+  )
+}
+
+export function registrarDocumento(
+  condominioId: string,
+  data: {
+    entidadeTipo: EntidadeDocumento
+    entidadeId: string
+    tipoDocumento: string
+    referenciaTexto: string
+  },
+) {
+  return apiFetch<Documento>(`/condominios/${condominioId}/documentos`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function atualizarDocumento(
+  condominioId: string,
+  documentoId: string,
+  data: { tipoDocumento: string; referenciaTexto: string },
+) {
+  return apiFetch<Documento>(`/condominios/${condominioId}/documentos/${documentoId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
 }

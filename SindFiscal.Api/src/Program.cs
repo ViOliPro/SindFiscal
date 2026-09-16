@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SindFiscal.Conversoes;
 using SindFiscal.Data;
 using SindFiscal.Services;
 
@@ -68,17 +69,26 @@ builder.Services.AddCors(opt =>
     );
 });
 
-builder.Services.AddControllers().AddJsonOptions(opt =>
-{
-    // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
-    // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
-    // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
-    // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
-    // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
-    opt.JsonSerializerOptions.Converters.Add(
-        new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
-    );
-});
+builder.Services
+    .AddControllers(options =>
+    {
+        // [FromQuery]/[FromRoute] enums (ex.: ?situacao=em_analise) usam a
+        // mesma convenção snake_case do corpo JSON abaixo — ver
+        // SnakeCaseEnumModelBinder para o porquê disso não funcionar de
+        // graça com o binder padrão do ASP.NET Core.
+        options.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider());
+    })
+    .AddJsonOptions(opt =>
+    {
+        // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
+        // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
+        // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
+        // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
+        // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
+        opt.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
+        );
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();

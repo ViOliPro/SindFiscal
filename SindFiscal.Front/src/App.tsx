@@ -7,21 +7,11 @@ import { AdminPage } from '@/pages/AdminPage'
 import { ContasPage } from '@/pages/ContasPage'
 import { NecessidadesPage } from '@/pages/NecessidadesPage'
 import { CompromissosPage } from '@/pages/CompromissosPage'
+import { PagamentosPage } from '@/pages/PagamentosPage'
+import { AcertoPage } from '@/pages/AcertoPage'
+import { ReservasPage } from '@/pages/ReservasPage'
+import { DocumentosPage } from '@/pages/DocumentosPage'
 import { useAuthStore } from '@/stores/authStore'
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div>
-      <header className="page-header">
-        <h1>{title}</h1>
-        <p>Módulo em construção — próximas fases.</p>
-      </header>
-      <div className="card empty-state">
-        <p>Esta tela será implementada nas próximas sessões.</p>
-      </div>
-    </div>
-  )
-}
 
 export default function App() {
   const token = useAuthStore((s) => s.token)
@@ -44,10 +34,10 @@ export default function App() {
           <Route path="contas" element={<ContasPage />} />
           <Route path="necessidades" element={<NecessidadesPage />} />
           <Route path="compromissos" element={<CompromissosPage />} />
-          <Route path="pagamentos" element={<Placeholder title="Pagamentos e Fila de Execução" />} />
-          <Route path="acerto" element={<Placeholder title="Área de Acerto" />} />
-          <Route path="reservas" element={<Placeholder title="Reservas de Área Comum" />} />
-          <Route path="documentos" element={<Placeholder title="Documentos" />} />
+          <Route path="pagamentos" element={<PagamentosPage />} />
+          <Route path="acerto" element={<AcertoPage />} />
+          <Route path="reservas" element={<ReservasPage />} />
+          <Route path="documentos" element={<DocumentosPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

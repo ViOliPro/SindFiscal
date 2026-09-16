@@ -33,3 +33,15 @@ public record AreaDeAcertoResponse(
     IReadOnlyList<TransferenciaResponse> Aportes,
     IReadOnlyList<TransferenciaResponse> DestinacoesReceita
 );
+
+/// <summary>
+/// RN20 — calcula o aporte esperado do período para um fundo e o acumula em
+/// AportePendenteAcumulado (sem gerar pendência obrigatória — pode ser
+/// dispensado no teto, ou ficar acumulado até o síndico decidir compensar).
+/// BaseDeCalculoPercentual só é usado quando o fundo tem RegraAporteTipo =
+/// percentual (ver nota de ponto em aberto em AreaDeAcertoService).
+/// </summary>
+public record AcumularAporteRequest(decimal? BaseDeCalculoPercentual);
+
+/// <summary>RN21 — síndico decide compensar total ou parcialmente o aporte pendente acumulado de um fundo.</summary>
+public record CompensarAporteRequest(decimal ValorAExecutar);
