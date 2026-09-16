@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SindFiscal.Conversoes;
 using SindFiscal.Data;
 using SindFiscal.Services;
 
@@ -14,9 +15,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
-        .UseSnakeCaseNamingConvention()
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditoriaSaveChangesInterceptor>();
+builder.Services.AddDbContext<AppDbContext>(
+    (sp, opt) =>
+        opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+            .UseSnakeCaseNamingConvention()
+            .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>())
 ); // pacote EFCore.NamingConventions — ver README.md
 
 // ---------------------------------------------------------------- Serviços de domínio
@@ -61,7 +66,14 @@ builder.Services.AddCors(opt =>
 });
 
 builder
-    .Services.AddControllers()
+    .Services.AddControllers(options =>
+    {
+        // [FromQuery]/[FromRoute] enums (ex.: ?situacao=em_analise) usam a
+        // mesma convenção snake_case do corpo JSON abaixo — ver
+        // SnakeCaseEnumModelBinder para o porquê disso não funcionar de
+        // graça com o binder padrão do ASP.NET Core.
+        options.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider());
+    })
     .AddJsonOptions(opt =>
     {
         // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,

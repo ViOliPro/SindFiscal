@@ -36,6 +36,7 @@ CREATE TABLE usuario (
     senha_hash      varchar(200) NOT NULL UNIQUE,
                         CHECK (papel IN ('sindico', 'colaborador', 'conselheiro_fiscal')),
     ativo           boolean NOT NULL DEFAULT true,
+    senha_hash      varchar(255),   -- RF01 — hash simples v1 (SHA256+salt); nulo = bootstrap sem senha definida
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz
 );
@@ -368,6 +369,7 @@ CREATE TABLE registro_auditoria (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     entidade_tipo       varchar(30) NOT NULL,   -- sem CHECK fechado: auditoria cobre qualquer tabela de negócio
     entidade_id         uuid NOT NULL,          -- sem FK (associação polimórfica)
+    condominio_id       uuid REFERENCES condominio(id), -- nulo quando a entidade não pertence a um condomínio (ex.: Fornecedor, RN04)
     usuario_id          uuid NOT NULL REFERENCES usuario(id),
     data_hora           timestamptz NOT NULL DEFAULT now(),
     campo_alterado      varchar(60) NOT NULL,
@@ -380,6 +382,7 @@ CREATE TABLE registro_auditoria (
 CREATE INDEX ix_auditoria_entidade ON registro_auditoria(entidade_tipo, entidade_id);
 CREATE INDEX ix_auditoria_usuario ON registro_auditoria(usuario_id);
 CREATE INDEX ix_auditoria_data ON registro_auditoria(data_hora);
+CREATE INDEX ix_auditoria_condominio ON registro_auditoria(condominio_id);
 
 COMMENT ON TABLE registro_auditoria IS 'RF19, RNF04, RNF14 — recomenda-se REVOKE UPDATE, DELETE ON registro_auditoria FROM roles de aplicação, permitindo apenas INSERT/SELECT, para reforçar a imutabilidade a nível de banco.';
 
