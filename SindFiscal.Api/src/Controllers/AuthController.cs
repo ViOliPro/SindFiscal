@@ -36,7 +36,7 @@ public class AuthController : ControllerBase
         var usuario = await _db
             .Usuarios.Include(u => u.Permissoes)
             .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, ct);
-        Console.WriteLine($"Usuario encontrado: {usuario?.Email ?? "null"}");
+
         if (usuario is null)
             return Unauthorized(new { message = "Credenciais inválidas." });
 
@@ -118,9 +118,7 @@ public class AuthController : ControllerBase
 
     private string GerarToken(Usuario usuario)
     {
-        var chave =
-            _cfg["Jwt:ChaveSecreta"]
-            ?? throw new InvalidOperationException("Jwt:ChaveSecreta ausente.");
+        var chave = _cfg["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:key ausente.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chave));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
