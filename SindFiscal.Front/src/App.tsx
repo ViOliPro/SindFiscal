@@ -6,6 +6,9 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { ContasPage } from '@/pages/ContasPage'
 import { CompromissosPage } from '@/pages/CompromissosPage'
+import { NecessidadesPage } from '@/pages/NecessidadesPage'
+import { PagamentosPage } from '@/pages/PagamentosPage'
+import { AcertoPage } from '@/pages/AcertoPage'
 import { useAuthStore } from '@/stores/authStore'
 
 function Placeholder({ title }: { title: string }) {
@@ -41,10 +44,10 @@ export default function App() {
         >
           <Route index element={<DashboardPage />} />
           <Route path="contas" element={<ContasPage />} />
-          <Route path="necessidades" element={<Placeholder title="Necessidades, Cotações e Fornecedores" />} />
+          <Route path="necessidades" element={<NecessidadesPage />} />
           <Route path="compromissos" element={<CompromissosPage />} />
-          <Route path="pagamentos" element={<Placeholder title="Pagamentos e Fila de Execução" />} />
-          <Route path="acerto" element={<Placeholder title="Área de Acerto" />} />
+          <Route path="pagamentos" element={<PagamentosPage />} />
+          <Route path="acerto" element={<AcertoPage />} />
           <Route path="reservas" element={<Placeholder title="Reservas de Área Comum" />} />
           <Route path="documentos" element={<Placeholder title="Documentos" />} />
           <Route path="admin" element={<AdminPage />} />
