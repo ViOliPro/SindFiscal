@@ -26,6 +26,15 @@ export type TipoLancamento = 'entrada' | 'saida'
 export type OrigemLancamento = 'real' | 'simulado'
 export type FonteLancamento = 'manual' | 'integracao'
 
+export type Prioridade = 'alta' | 'media' | 'baixa'
+export type SituacaoNecessidade =
+  | 'em_analise'
+  | 'em_orcamento'
+  | 'aprovado'
+  | 'reprovado'
+  | 'adiado'
+  | 'executado'
+
 export type ResultadoDecisao = 'aprovado' | 'reprovado' | 'adiado'
 export type StatusCompromisso =
   | 'aguardando_execucao'
@@ -34,6 +43,12 @@ export type StatusCompromisso =
   | 'concluido'
   | 'cancelado'
 export type TipoPagamento = 'entrada' | 'adiantamento' | 'parcela' | 'total'
+
+export type MotivoTransferencia = 'reposicao' | 'aporte' | 'destinacao_receita'
+export type StatusTransferencia = 'sem_ajuste' | 'pendente' | 'ajustado'
+export type TipoTransferencia = 'total' | 'individual'
+export type ModoTransferencia = 'automatica' | 'checklist_manual'
+export type OrigemTransferencia = 'manual' | 'sugerida_pelo_sistema'
 
 export interface Usuario {
   id: string
@@ -47,6 +62,7 @@ export interface Condominio {
   id: string
   nome: string
   possuiIntegracaoApi: boolean
+  valorAlcadaAprovacao?: number | null
 }
 
 export interface Permissao {
@@ -85,6 +101,45 @@ export interface Lancamento {
 export interface LoginResponse {
   token: string
   usuario: Usuario
+}
+
+export interface Fornecedor {
+  id: string
+  nome: string
+  categoria: string
+  avaliacaoNota: number | null
+  avaliacaoComentario: string | null
+}
+
+export interface Necessidade {
+  id: string
+  descricao: string
+  categoria: string
+  prioridade: Prioridade | null
+  escopoTexto: string | null
+  situacao: SituacaoNecessidade
+  responsavelId: string | null
+}
+
+export interface Cotacao {
+  id: string
+  necessidadeId: string
+  fornecedorId: string
+  fornecedorNome: string
+  valor: number
+  prazoExecucaoDias: number | null
+  garantiaDescricao: string | null
+  condicoesPagamento: string | null
+  validade: string | null
+}
+
+export interface ComparativoCotacoes {
+  necessidadeId: string
+  cotacoes: Cotacao[]
+  menorValor: number
+  maiorValor: number
+  diferenca: number
+  fornecedorMaisBaratoId: string
 }
 
 export interface Decisao {
@@ -133,6 +188,48 @@ export interface CompromissoFinanceiroDetalhe {
   pagamentos: PagamentoResumo[]
 }
 
+export interface Pagamento {
+  id: string
+  compromissoId: string
+  fundoResponsavelId: string
+  lancamentoId: string | null
+  tipo: TipoPagamento
+  valor: number
+  data: string
+}
+
+export interface Transferencia {
+  id: string
+  contaOrigemId: string
+  contaOrigemNome: string
+  contaDestinoId: string
+  contaDestinoNome: string
+  valor: number
+  tipo: TipoTransferencia
+  modo: ModoTransferencia
+  origem: OrigemTransferencia
+  motivo: MotivoTransferencia
+  status: StatusTransferencia
+  dataExecucao: string | null
+}
+
+export interface AreaDeAcerto {
+  reposicoes: Transferencia[]
+  aportes: Transferencia[]
+  destinacoesReceita: Transferencia[]
+}
+
+export interface Dashboard {
+  saldoBancarioTotal: number
+  valorComprometidoTotal: number
+  saldoLivre: number
+  percentualComprometido: number
+  necessidadeDeArrecadacaoExtra: boolean
+  valorEmFilaDeExecucao: number
+  itensPendentesNaAreaDeAcerto: number
+  itensEmAnaliseOuOrcamento: number
+}
+
 export const STATUS_COMPROMISSO_LABEL: Record<StatusCompromisso, string> = {
   aguardando_execucao: 'Aguardando execução',
   em_fila_execucao: 'Em fila de execução',
@@ -147,6 +244,27 @@ export const RESULTADO_DECISAO_LABEL: Record<ResultadoDecisao, string> = {
   adiado: 'Adiado',
 }
 
+export const SITUACAO_NECESSIDADE_LABEL: Record<SituacaoNecessidade, string> = {
+  em_analise: 'Em análise',
+  em_orcamento: 'Em orçamento',
+  aprovado: 'Aprovado',
+  reprovado: 'Reprovado',
+  adiado: 'Adiado',
+  executado: 'Executado',
+}
+
+export const PRIORIDADE_LABEL: Record<Prioridade, string> = {
+  alta: 'Alta',
+  media: 'Média',
+  baixa: 'Baixa',
+}
+
+export const MOTIVO_TRANSFERENCIA_LABEL: Record<MotivoTransferencia, string> = {
+  reposicao: 'Reposição',
+  aporte: 'Aporte',
+  destinacao_receita: 'Destinação de receita',
+}
+
 export const MODULOS_LABEL: Record<string, string> = {
   contas_lancamentos: 'Contas e Lançamentos',
   necessidades_cotacoes_fornecedores: 'Necessidades / Cotações / Fornecedores',
@@ -158,12 +276,20 @@ export const MODULOS_LABEL: Record<string, string> = {
   documentos: 'Documentos',
   reservas_area_comum: 'Reservas',
   auditoria: 'Auditoria',
+  condominios_usuarios_integracoes: 'Condomínios / Usuários',
 }
 
 export const FINALIDADE_LABEL: Record<FinalidadeConta, string> = {
   ordinario: 'Ordinário',
   extraordinario: 'Extraordinário',
-  fundo_reserva: 'Fundo de Reserva',
-  fundo_trabalho: 'Fundo de Trabalho',
-  fundo_area_especifica: 'Fundo de Área Específica',
+  fundo_reserva: 'Fundo de reserva',
+  fundo_trabalho: 'Fundo de trabalho',
+  fundo_area_especifica: 'Fundo área específica',
+}
+
+export const TIPO_PAGAMENTO_LABEL: Record<TipoPagamento, string> = {
+  entrada: 'Entrada',
+  adiantamento: 'Adiantamento',
+  parcela: 'Parcela',
+  total: 'Total',
 }
