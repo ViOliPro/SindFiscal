@@ -17,9 +17,16 @@ builder.Configuration.AddEnvironmentVariables();
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AuditoriaSaveChangesInterceptor>();
+
+var connectionString =
+    builder.Configuration["ConnectionStrings:DefaultConnection"]
+    ?? throw new InvalidOperationException(
+        "Configuração ConnectionStrings:DefaultConnection ausente (appsettings.json ou variável de ambiente)."
+    );
+
 builder.Services.AddDbContext<AppDbContext>(
     (sp, opt) =>
-        opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+        opt.UseNpgsql(connectionString)
             .UseSnakeCaseNamingConvention()
             .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>())
 ); // pacote EFCore.NamingConventions — ver README.md

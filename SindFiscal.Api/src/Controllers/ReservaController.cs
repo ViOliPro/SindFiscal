@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SindFiscal.Authorization;
 using SindFiscal.Data;
+using SindFiscal.Data.Enums;
 using SindFiscal.Dtos;
 using SindFiscal.Entities;
 using SindFiscal.Services;
