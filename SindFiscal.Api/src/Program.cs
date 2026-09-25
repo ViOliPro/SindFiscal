@@ -5,15 +5,30 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SindFiscal.Conversoes;
 using SindFiscal.Data;
 using SindFiscal.Services;
 
+// Inicializa o builder e carrega as variáveis de ambiente IMEDIATAMENTE
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddEnvironmentVariables();
+
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
-        .UseSnakeCaseNamingConvention()
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditoriaSaveChangesInterceptor>();
+
+var connectionString =
+    builder.Configuration["ConnectionStrings:DefaultConnection"]
+    ?? throw new InvalidOperationException(
+        "Configuração ConnectionStrings:DefaultConnection ausente (appsettings.json ou variável de ambiente)."
+    );
+
+builder.Services.AddDbContext<AppDbContext>(
+    (sp, opt) =>
+        opt.UseNpgsql(connectionString)
+            .UseSnakeCaseNamingConvention()
+            .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>())
 ); // pacote EFCore.NamingConventions — ver README.md
 
 // ---------------------------------------------------------------- Serviços de domínio
@@ -22,9 +37,9 @@ builder.Services.AddScoped<FilaExecucaoService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
 var chaveJwt =
-    builder.Configuration["Jwt:ChaveSecreta"]
+    builder.Configuration["Jwt:key"]
     ?? throw new InvalidOperationException(
-        "Configuração Jwt:ChaveSecreta ausente (appsettings.json ou variável de ambiente)."
+        "Configuração Jwt:key ausente (appsettings.json ou variável de ambiente)."
     );
 
 builder
@@ -37,8 +52,8 @@ builder
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Emissor"],
-            ValidAudience = builder.Configuration["Jwt:Audiencia"],
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chaveJwt)),
         };
     });
@@ -54,27 +69,29 @@ builder.Services.AddAuthorization(opt =>
 // ---------------------------------------------------------------- CORS (front Vite)
 builder.Services.AddCors(opt =>
 {
-    opt.AddPolicy("Front", policy =>
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-    );
+    opt.AddPolicy("Front", policy => policy.WithOrigins("*").AllowAnyHeader().AllowAnyMethod());
 });
 
-builder.Services.AddControllers().AddJsonOptions(opt =>
-{
-    // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
-    // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
-    // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
-    // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
-    // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
-    opt.JsonSerializerOptions.Converters.Add(
-        new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
-    );
-});
+builder
+    .Services.AddControllers(options =>
+    {
+        // [FromQuery]/[FromRoute] enums (ex.: ?situacao=em_analise) usam a
+        // mesma convenção snake_case do corpo JSON abaixo — ver
+        // SnakeCaseEnumModelBinder para o porquê disso não funcionar de
+        // graça com o binder padrão do ASP.NET Core.
+        options.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider());
+    })
+    .AddJsonOptions(opt =>
+    {
+        // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
+        // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
+        // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
+        // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
+        // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
+        opt.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
+        );
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();

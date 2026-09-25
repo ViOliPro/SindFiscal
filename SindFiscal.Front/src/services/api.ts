@@ -1,22 +1,34 @@
 import { apiFetch } from '@/lib/api'
 import type {
+  AreaDeAcerto,
+  ComparativoCotacoes,
   Condominio,
   CompromissoFinanceiro,
   CompromissoFinanceiroDetalhe,
   ContaBancaria,
+  Cotacao,
+  Dashboard,
   Decisao,
   FinalidadeConta,
+  Fornecedor,
   Lancamento,
   LoginResponse,
+  Necessidade,
   NivelPermissao,
+  Pagamento,
   Permissao,
+  Prioridade,
   ResultadoDecisao,
+  SituacaoNecessidade,
   StatusCompromisso,
   TipoLancamento,
+  TipoPagamento,
   TipoRegraAporte,
+  Transferencia,
   Usuario,
 } from '@/types'
 
+// ---------------------------------------------------------------- Auth
 export function login(email: string, senha: string) {
   return apiFetch<LoginResponse>('/auth/login', {
     method: 'POST',
@@ -35,6 +47,7 @@ export function me() {
   return apiFetch<Usuario>('/auth/me')
 }
 
+// ---------------------------------------------------------------- Condomínios / Usuários
 export function listarCondominios() {
   return apiFetch<Condominio[]>('/condominios')
 }
@@ -43,6 +56,16 @@ export function criarCondominio(nome: string) {
   return apiFetch<Condominio>('/condominios', {
     method: 'POST',
     body: JSON.stringify({ nome }),
+  })
+}
+
+export function atualizarCondominio(
+  condominioId: string,
+  data: { nome: string; valorAlcadaAprovacao?: number | null },
+) {
+  return apiFetch<Condominio>(`/condominios/${condominioId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   })
 }
 
@@ -73,6 +96,7 @@ export function concederPermissao(
   })
 }
 
+// ---------------------------------------------------------------- Contas / Lançamentos
 export function listarContas(condominioId: string) {
   return apiFetch<ContaBancaria[]>(`/condominios/${condominioId}/contas`)
 }
@@ -92,6 +116,21 @@ export function criarConta(
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+export function atualizarRegraAporte(
+  condominioId: string,
+  contaId: string,
+  data: {
+    regraAporteTipo?: TipoRegraAporte | null
+    regraAporteValor?: number | null
+    tetoMaximo?: number | null
+  },
+) {
+  return apiFetch<ContaBancaria>(
+    `/condominios/${condominioId}/contas/${contaId}/regra-aporte`,
+    { method: 'PATCH', body: JSON.stringify(data) },
+  )
 }
 
 export function listarLancamentos(
@@ -135,8 +174,121 @@ export function estornarLancamento(
   )
 }
 
-// ---------------------------------------------------------------- Decisões (RF09, Mód. 3)
+// ---------------------------------------------------------------- Dashboard
+export function obterDashboard(condominioId: string) {
+  return apiFetch<Dashboard>(`/condominios/${condominioId}/dashboard`)
+}
 
+export function relatorioPrestacaoContas(
+  condominioId: string,
+  inicio: string,
+  fim: string,
+) {
+  const q = new URLSearchParams({ inicio, fim })
+  return apiFetch<unknown>(
+    `/condominios/${condominioId}/dashboard/relatorio-prestacao-contas?${q}`,
+  )
+}
+
+// ---------------------------------------------------------------- Fornecedores (RF08)
+export function listarFornecedores() {
+  return apiFetch<Fornecedor[]>('/fornecedores')
+}
+
+export function criarFornecedor(nome: string, categoria: string) {
+  return apiFetch<Fornecedor>('/fornecedores', {
+    method: 'POST',
+    body: JSON.stringify({ nome, categoria }),
+  })
+}
+
+export function avaliarFornecedor(
+  fornecedorId: string,
+  nota: number,
+  comentario?: string,
+) {
+  return apiFetch<Fornecedor>(`/fornecedores/${fornecedorId}/avaliar`, {
+    method: 'POST',
+    body: JSON.stringify({ nota, comentario }),
+  })
+}
+
+// ---------------------------------------------------------------- Necessidades (RF06)
+export function listarNecessidades(
+  condominioId: string,
+  situacao?: SituacaoNecessidade,
+) {
+  const qs = situacao ? `?situacao=${situacao}` : ''
+  return apiFetch<Necessidade[]>(
+    `/condominios/${condominioId}/necessidades${qs}`,
+  )
+}
+
+export function obterNecessidade(condominioId: string, necessidadeId: string) {
+  return apiFetch<Necessidade>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}`,
+  )
+}
+
+export function criarNecessidade(
+  condominioId: string,
+  data: {
+    descricao: string
+    categoria: string
+    prioridade?: Prioridade | null
+    escopoTexto?: string
+    responsavelId?: string | null
+  },
+) {
+  return apiFetch<Necessidade>(`/condominios/${condominioId}/necessidades`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function atualizarSituacaoNecessidade(
+  condominioId: string,
+  necessidadeId: string,
+  situacao: SituacaoNecessidade,
+) {
+  return apiFetch<Necessidade>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/situacao`,
+    { method: 'PATCH', body: JSON.stringify({ situacao }) },
+  )
+}
+
+// ---------------------------------------------------------------- Cotações (RF07)
+export function listarCotacoes(condominioId: string, necessidadeId: string) {
+  return apiFetch<Cotacao[]>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes`,
+  )
+}
+
+export function comparativoCotacoes(condominioId: string, necessidadeId: string) {
+  return apiFetch<ComparativoCotacoes>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes/comparativo`,
+  )
+}
+
+export function registrarCotacao(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    fornecedorId: string
+    valor: number
+    prazoExecucaoDias?: number | null
+    garantiaDescricao?: string
+    condicoesPagamento?: string
+    validade?: string | null
+  },
+) {
+  return apiFetch<Cotacao>(
+    `/condominios/${condominioId}/necessidades/${necessidadeId}/cotacoes`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+// ---------------------------------------------------------------- Decisões (RF09)
 export function listarDecisoes(condominioId: string, necessidadeId: string) {
   return apiFetch<Decisao[]>(
     `/condominios/${condominioId}/necessidades/${necessidadeId}/decisoes`,
@@ -160,8 +312,7 @@ export function registrarDecisao(
   )
 }
 
-// ---------------------------------------------------------------- Compromissos (RF10/RF12/RF13, Mód. 3)
-
+// ---------------------------------------------------------------- Compromissos (RF10/RF12/RF13)
 export function listarCompromissos(condominioId: string, status?: StatusCompromisso) {
   const qs = status ? `?status=${status}` : ''
   return apiFetch<CompromissoFinanceiro[]>(
@@ -237,5 +388,58 @@ export function reordenarFila(condominioId: string, compromissoIdsEmOrdem: strin
   return apiFetch<void>(
     `/condominios/${condominioId}/compromissos/fila-execucao/reordenar`,
     { method: 'PUT', body: JSON.stringify({ compromissoIdsEmOrdem }) },
+  )
+}
+
+// ---------------------------------------------------------------- Pagamentos (RF11)
+export function listarPagamentos(condominioId: string, compromissoId: string) {
+  return apiFetch<Pagamento[]>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/pagamentos`,
+  )
+}
+
+export function registrarPagamento(
+  condominioId: string,
+  compromissoId: string,
+  data: {
+    fundoResponsavelId: string
+    tipo: TipoPagamento
+    valor: number
+    data: string
+    lancamentoIdParaReconciliar?: string | null
+  },
+) {
+  return apiFetch<Pagamento>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/pagamentos`,
+    { method: 'POST', body: JSON.stringify(data) },
+  )
+}
+
+// ---------------------------------------------------------------- Área de Acerto (RF14)
+export function listarAreaDeAcerto(condominioId: string) {
+  return apiFetch<AreaDeAcerto>(`/condominios/${condominioId}/area-de-acerto`)
+}
+
+export function consolidarItensAcerto(
+  condominioId: string,
+  transferenciaIdsParaConsolidar: string[],
+) {
+  return apiFetch<Transferencia>(
+    `/condominios/${condominioId}/area-de-acerto/consolidar`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ transferenciaIdsParaConsolidar }),
+    },
+  )
+}
+
+export function confirmarExecucaoAcerto(
+  condominioId: string,
+  transferenciaId: string,
+  dataExecucao: string,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/area-de-acerto/${transferenciaId}/confirmar-execucao`,
+    { method: 'POST', body: JSON.stringify({ dataExecucao }) },
   )
 }
