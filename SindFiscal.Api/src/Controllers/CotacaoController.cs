@@ -22,14 +22,18 @@ public class CotacaoController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CotacaoResponse>>> Listar(
         Guid condominioId,
         Guid necessidadeId,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var pertence = await _db.Necessidades
-            .AnyAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
-        if (!pertence) return NotFound("Necessidade não encontrada neste condomínio.");
+        var pertence = await _db.Necessidades.AnyAsync(
+            n => n.Id == necessidadeId && n.CondominioId == condominioId,
+            ct
+        );
+        if (!pertence)
+            return NotFound("Necessidade não encontrada neste condomínio.");
 
-        var lista = await _db.Cotacoes
-            .Where(c => c.NecessidadeId == necessidadeId)
+        var lista = await _db
+            .Cotacoes.Where(c => c.NecessidadeId == necessidadeId)
             .Include(c => c.Fornecedor)
             .OrderBy(c => c.Valor)
             .Select(c => new CotacaoResponse(
@@ -41,7 +45,8 @@ public class CotacaoController : ControllerBase
                 c.PrazoExecucaoDias,
                 c.GarantiaDescricao,
                 c.CondicoesPagamento,
-                c.Validade))
+                c.Validade
+            ))
             .ToListAsync(ct);
 
         return Ok(lista);
@@ -51,14 +56,18 @@ public class CotacaoController : ControllerBase
     public async Task<ActionResult<ComparativoCotacoesResponse>> Comparativo(
         Guid condominioId,
         Guid necessidadeId,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var pertence = await _db.Necessidades
-            .AnyAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
-        if (!pertence) return NotFound("Necessidade não encontrada neste condomínio.");
+        var pertence = await _db.Necessidades.AnyAsync(
+            n => n.Id == necessidadeId && n.CondominioId == condominioId,
+            ct
+        );
+        if (!pertence)
+            return NotFound("Necessidade não encontrada neste condomínio.");
 
-        var cotacoes = await _db.Cotacoes
-            .Where(c => c.NecessidadeId == necessidadeId)
+        var cotacoes = await _db
+            .Cotacoes.Where(c => c.NecessidadeId == necessidadeId)
             .Include(c => c.Fornecedor)
             .OrderBy(c => c.Valor)
             .Select(c => new CotacaoResponse(
@@ -70,24 +79,29 @@ public class CotacaoController : ControllerBase
                 c.PrazoExecucaoDias,
                 c.GarantiaDescricao,
                 c.CondicoesPagamento,
-                c.Validade))
+                c.Validade
+            ))
             .ToListAsync(ct);
 
         if (cotacoes.Count == 0)
-            return Ok(new ComparativoCotacoesResponse(
-                necessidadeId, cotacoes, 0, 0, 0, Guid.Empty));
+            return Ok(
+                new ComparativoCotacoesResponse(necessidadeId, cotacoes, 0, 0, 0, Guid.Empty)
+            );
 
         var menor = cotacoes.Min(c => c.Valor);
         var maior = cotacoes.Max(c => c.Valor);
         var maisBarato = cotacoes.OrderBy(c => c.Valor).First();
 
-        return Ok(new ComparativoCotacoesResponse(
-            necessidadeId,
-            cotacoes,
-            menor,
-            maior,
-            maior - menor,
-            maisBarato.FornecedorId));
+        return Ok(
+            new ComparativoCotacoesResponse(
+                necessidadeId,
+                cotacoes,
+                menor,
+                maior,
+                maior - menor,
+                maisBarato.FornecedorId
+            )
+        );
     }
 
     [HttpPost]
@@ -96,14 +110,22 @@ public class CotacaoController : ControllerBase
         Guid condominioId,
         Guid necessidadeId,
         RegistrarCotacaoRequest request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var necessidade = await _db.Necessidades
-            .FirstOrDefaultAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
-        if (necessidade is null) return NotFound("Necessidade não encontrada neste condomínio.");
+        var necessidade = await _db.Necessidades.FirstOrDefaultAsync(
+            n => n.Id == necessidadeId && n.CondominioId == condominioId,
+            ct
+        );
+        if (necessidade is null)
+            return NotFound("Necessidade não encontrada neste condomínio.");
 
-        var fornecedorExiste = await _db.Fornecedores.AnyAsync(f => f.Id == request.FornecedorId, ct);
-        if (!fornecedorExiste) return BadRequest("Fornecedor não encontrado.");
+        var fornecedorExiste = await _db.Fornecedores.AnyAsync(
+            f => f.Id == request.FornecedorId,
+            ct
+        );
+        if (!fornecedorExiste)
+            return BadRequest("Fornecedor não encontrado.");
 
         if (request.Valor <= 0)
             return BadRequest("Valor da cotação deve ser positivo.");
@@ -122,7 +144,6 @@ public class CotacaoController : ControllerBase
         };
         _db.Cotacoes.Add(cotacao);
 
-        // Avança ciclo de vida para EmOrcamento se ainda em análise
         if (necessidade.Situacao == SituacaoNecessidade.EmAnalise)
         {
             necessidade.Situacao = SituacaoNecessidade.EmOrcamento;
@@ -131,8 +152,8 @@ public class CotacaoController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
-        var fornecedorNome = await _db.Fornecedores
-            .Where(f => f.Id == request.FornecedorId)
+        var fornecedorNome = await _db
+            .Fornecedores.Where(f => f.Id == request.FornecedorId)
             .Select(f => f.Nome)
             .FirstAsync(ct);
 
@@ -148,6 +169,8 @@ public class CotacaoController : ControllerBase
                 cotacao.PrazoExecucaoDias,
                 cotacao.GarantiaDescricao,
                 cotacao.CondicoesPagamento,
-                cotacao.Validade));
+                cotacao.Validade
+            )
+        );
     }
 }
