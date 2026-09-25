@@ -36,7 +36,7 @@ export async function apiFetch<T>(
   } catch {
     throw new ApiError(0, "Falha de rede — API indisponível.");
   }
-
+  console.log(res);
   if (!res.ok) {
     let msg = res.statusText;
     try {

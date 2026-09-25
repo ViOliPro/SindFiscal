@@ -8,10 +8,7 @@ using SindFiscal.Entities;
 
 namespace SindFiscal.Controllers;
 
-/// <summary>
-/// RF07, RN05, RN06 — cotações de uma necessidade, quantidade livre (1 a N),
-/// com comparação automática entre elas (módulo 2).
-/// </summary>
+/// <summary>RF07, RN05 — 1..N cotações por necessidade + comparativo.</summary>
 [ApiController]
 [Route("api/condominios/{condominioId:guid}/necessidades/{necessidadeId:guid}/cotacoes")]
 [RequerPermissao(Modulos.NecessidadesCotacoesFornecedores)]
@@ -25,134 +22,91 @@ public class CotacaoController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<CotacaoResponse>>> Listar(
         Guid condominioId,
         Guid necessidadeId,
-        CancellationToken ct
-    )
+        CancellationToken ct)
     {
-        var necessidadeExiste = await _db.Necessidades.AnyAsync(
-            n => n.Id == necessidadeId && n.CondominioId == condominioId,
-            ct
-        );
-        if (!necessidadeExiste)
-            return NotFound("Necessidade não encontrada neste condomínio.");
+        var pertence = await _db.Necessidades
+            .AnyAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
+        if (!pertence) return NotFound("Necessidade não encontrada neste condomínio.");
 
-        var cotacoes = await MapearResponse(
-            _db.Cotacoes.Where(c => c.NecessidadeId == necessidadeId)
-                .OrderBy(c => c.Valor)
-        ).ToListAsync(ct);
+        var lista = await _db.Cotacoes
+            .Where(c => c.NecessidadeId == necessidadeId)
+            .Include(c => c.Fornecedor)
+            .OrderBy(c => c.Valor)
+            .Select(c => new CotacaoResponse(
+                c.Id,
+                c.NecessidadeId,
+                c.FornecedorId,
+                c.Fornecedor.Nome,
+                c.Valor,
+                c.PrazoExecucaoDias,
+                c.GarantiaDescricao,
+                c.CondicoesPagamento,
+                c.Validade))
+            .ToListAsync(ct);
 
-        return Ok(cotacoes);
+        return Ok(lista);
     }
 
-    [HttpGet("{cotacaoId:guid}")]
-    public async Task<ActionResult<CotacaoResponse>> ObterPorId(
-        Guid condominioId,
-        Guid necessidadeId,
-        Guid cotacaoId,
-        CancellationToken ct
-    )
-    {
-        var cotacao = await MapearResponse(
-            _db.Cotacoes.Where(c =>
-                c.Id == cotacaoId
-                && c.NecessidadeId == necessidadeId
-                && c.Necessidade.CondominioId == condominioId
-            )
-        ).FirstOrDefaultAsync(ct);
-
-        if (cotacao is null)
-            return NotFound("Cotação não encontrada para esta necessidade.");
-
-        return Ok(cotacao);
-    }
-
-    /// <summary>RF07, RN05 — comparação automática entre as cotações da necessidade.</summary>
     [HttpGet("comparativo")]
     public async Task<ActionResult<ComparativoCotacoesResponse>> Comparativo(
         Guid condominioId,
         Guid necessidadeId,
-        CancellationToken ct
-    )
+        CancellationToken ct)
     {
-        var necessidadeExiste = await _db.Necessidades.AnyAsync(
-            n => n.Id == necessidadeId && n.CondominioId == condominioId,
-            ct
-        );
-        if (!necessidadeExiste)
-            return NotFound("Necessidade não encontrada neste condomínio.");
+        var pertence = await _db.Necessidades
+            .AnyAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
+        if (!pertence) return NotFound("Necessidade não encontrada neste condomínio.");
 
-        var cotacoes = await MapearResponse(
-            _db.Cotacoes.Where(c => c.NecessidadeId == necessidadeId).OrderBy(c => c.Valor)
-        ).ToListAsync(ct);
+        var cotacoes = await _db.Cotacoes
+            .Where(c => c.NecessidadeId == necessidadeId)
+            .Include(c => c.Fornecedor)
+            .OrderBy(c => c.Valor)
+            .Select(c => new CotacaoResponse(
+                c.Id,
+                c.NecessidadeId,
+                c.FornecedorId,
+                c.Fornecedor.Nome,
+                c.Valor,
+                c.PrazoExecucaoDias,
+                c.GarantiaDescricao,
+                c.CondicoesPagamento,
+                c.Validade))
+            .ToListAsync(ct);
 
         if (cotacoes.Count == 0)
-            return NotFound("Nenhuma cotação registrada para esta necessidade ainda.");
+            return Ok(new ComparativoCotacoesResponse(
+                necessidadeId, cotacoes, 0, 0, 0, Guid.Empty));
 
         var menor = cotacoes.Min(c => c.Valor);
         var maior = cotacoes.Max(c => c.Valor);
-        var maisBarata = cotacoes.First(c => c.Valor == menor);
+        var maisBarato = cotacoes.OrderBy(c => c.Valor).First();
 
-        return Ok(
-            new ComparativoCotacoesResponse(
-                necessidadeId,
-                cotacoes,
-                menor,
-                maior,
-                maior - menor,
-                maisBarata.FornecedorId
-            )
-        );
+        return Ok(new ComparativoCotacoesResponse(
+            necessidadeId,
+            cotacoes,
+            menor,
+            maior,
+            maior - menor,
+            maisBarato.FornecedorId));
     }
 
-    /// <summary>
-    /// RN05 — sem limite de quantidade por necessidade. RN06 exige que a
-    /// necessidade já tenha um escopo comum registrado, para garantir
-    /// comparação justa entre propostas.
-    /// </summary>
     [HttpPost]
     [RequerPermissao(Modulos.NecessidadesCotacoesFornecedores, NivelPermissao.Editar)]
     public async Task<ActionResult<CotacaoResponse>> Registrar(
         Guid condominioId,
         Guid necessidadeId,
         RegistrarCotacaoRequest request,
-        CancellationToken ct
-    )
+        CancellationToken ct)
     {
-        var necessidade = await _db.Necessidades.FirstOrDefaultAsync(
-            n => n.Id == necessidadeId && n.CondominioId == condominioId,
-            ct
-        );
-        if (necessidade is null)
-            return NotFound("Necessidade não encontrada neste condomínio.");
+        var necessidade = await _db.Necessidades
+            .FirstOrDefaultAsync(n => n.Id == necessidadeId && n.CondominioId == condominioId, ct);
+        if (necessidade is null) return NotFound("Necessidade não encontrada neste condomínio.");
 
-        if (
-            necessidade.Situacao
-            is not (SituacaoNecessidade.EmAnalise or SituacaoNecessidade.EmOrcamento)
-        )
-            return Conflict("Necessidade já decidida — não é mais possível registrar cotações.");
+        var fornecedorExiste = await _db.Fornecedores.AnyAsync(f => f.Id == request.FornecedorId, ct);
+        if (!fornecedorExiste) return BadRequest("Fornecedor não encontrado.");
 
-        if (string.IsNullOrWhiteSpace(necessidade.EscopoTexto))
-            return BadRequest(
-                "Necessidade precisa de um escopo de serviço registrado antes da primeira cotação (RN06)."
-            );
-
-        if (request.Valor < 0)
-            return BadRequest("Valor da cotação não pode ser negativo.");
-
-        // RN04 — fornecedor é entidade do síndico, compartilhada entre seus
-        // condomínios; garante que não veio um id de fornecedor de outro síndico.
-        var condominio = await _db.Condominios.FirstOrDefaultAsync(
-            c => c.Id == condominioId,
-            ct
-        );
-        if (condominio is null)
-            return NotFound("Condomínio não encontrado.");
-
-        var fornecedor = await _db.Fornecedores.FirstOrDefaultAsync(
-            f => f.Id == request.FornecedorId && f.SindicoId == condominio.SindicoId,
-            ct
-        );
-        if (fornecedor is null)
-            return BadRequest("Fornecedor informado não pertence a este síndico.");
+        if (request.Valor <= 0)
+            return BadRequest("Valor da cotação deve ser positivo.");
 
         var cotacao = new Cotacao
         {
@@ -168,8 +122,7 @@ public class CotacaoController : ControllerBase
         };
         _db.Cotacoes.Add(cotacao);
 
-        // RF06 — assim que a primeira cotação chega, a necessidade avança
-        // de "em análise" para "em orçamento" no ciclo de vida único.
+        // Avança ciclo de vida para EmOrcamento se ainda em análise
         if (necessidade.Situacao == SituacaoNecessidade.EmAnalise)
         {
             necessidade.Situacao = SituacaoNecessidade.EmOrcamento;
@@ -178,33 +131,23 @@ public class CotacaoController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
+        var fornecedorNome = await _db.Fornecedores
+            .Where(f => f.Id == request.FornecedorId)
+            .Select(f => f.Nome)
+            .FirstAsync(ct);
+
         return CreatedAtAction(
-            nameof(ObterPorId),
-            new { condominioId, necessidadeId, cotacaoId = cotacao.Id },
+            nameof(Listar),
+            new { condominioId, necessidadeId },
             new CotacaoResponse(
                 cotacao.Id,
                 cotacao.NecessidadeId,
                 cotacao.FornecedorId,
-                fornecedor.Nome,
+                fornecedorNome,
                 cotacao.Valor,
                 cotacao.PrazoExecucaoDias,
                 cotacao.GarantiaDescricao,
                 cotacao.CondicoesPagamento,
-                cotacao.Validade
-            )
-        );
+                cotacao.Validade));
     }
-
-    private static IQueryable<CotacaoResponse> MapearResponse(IQueryable<Cotacao> query) =>
-        query.Select(c => new CotacaoResponse(
-            c.Id,
-            c.NecessidadeId,
-            c.FornecedorId,
-            c.Fornecedor.Nome,
-            c.Valor,
-            c.PrazoExecucaoDias,
-            c.GarantiaDescricao,
-            c.CondicoesPagamento,
-            c.Validade
-        ));
 }
