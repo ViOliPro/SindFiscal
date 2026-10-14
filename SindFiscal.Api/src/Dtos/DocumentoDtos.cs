@@ -17,3 +17,6 @@ public record RegistrarDocumentoRequest(
     string TipoDocumento,
     string ReferenciaTexto
 );
+
+/// <summary>Corrige tipo/referência de um documento já registrado — EntidadeTipo/EntidadeId não mudam.</summary>
+public record AtualizarDocumentoRequest(string TipoDocumento, string ReferenciaTexto);

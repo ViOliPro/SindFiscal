@@ -1,14 +1,14 @@
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore } from "@/stores/authStore";
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api'
-
+const BASE = import.meta.env.VITE_API_URL ?? "/api";
+console.log(`API base URL: ${BASE}`);
 export class ApiError extends Error {
-  status: number
+  status: number;
 
   constructor(status: number, message: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
 }
 
@@ -17,37 +17,37 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = useAuthStore.getState().token
-  const headers = new Headers(options.headers)
+  const token = useAuthStore.getState().token;
+  const headers = new Headers(options.headers);
 
-  if (!headers.has('Content-Type') && options.body) {
-    headers.set('Content-Type', 'application/json')
+  if (!headers.has("Content-Type") && options.body) {
+    headers.set("Content-Type", "application/json");
   }
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
       ...options,
       headers,
-    })
+    });
   } catch {
-    throw new ApiError(0, 'Falha de rede — API indisponível.')
+    throw new ApiError(0, "Falha de rede — API indisponível.");
   }
-
+  console.log(res);
   if (!res.ok) {
-    let msg = res.statusText
+    let msg = res.statusText;
     try {
-      const body = await res.json()
-      msg = body?.message ?? body?.title ?? msg
+      const body = await res.json();
+      msg = body?.message ?? body?.title ?? msg;
     } catch {
       /* ignore */
     }
-    throw new ApiError(res.status, msg)
+    throw new ApiError(res.status, msg);
   }
 
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
 }

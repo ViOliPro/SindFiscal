@@ -167,4 +167,99 @@ public class TransferenciaController : ControllerBase
         await _areaDeAcerto.ConfirmarExecucaoAsync(transferenciaId, request.DataExecucao, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// RN20 — calcula e acumula o aporte esperado do período em
+    /// AportePendenteAcumulado. Não cria pendência nem transferência — só
+    /// atualiza o acumulado do fundo (ver <see cref="CompensarAporte"/> para
+    /// de fato gerar a transferência).
+    /// </summary>
+    [HttpPost("fundos/{fundoId:guid}/acumular-aporte")]
+    [RequerPermissao(Modulos.TransferenciasAreaAcerto, NivelPermissao.Editar)]
+    public async Task<IActionResult> AcumularAporte(
+        Guid condominioId,
+        Guid fundoId,
+        AcumularAporteRequest request,
+        CancellationToken ct
+    )
+    {
+        var fundoPertenceAoCondominio = await _db.ContasBancarias.AnyAsync(
+            c => c.Id == fundoId && c.CondominioId == condominioId,
+            ct
+        );
+        if (!fundoPertenceAoCondominio)
+            return NotFound("Fundo não encontrado neste condomínio.");
+
+        try
+        {
+            await _areaDeAcerto.AcumularAportePeriodoAsync(
+                fundoId,
+                request.BaseDeCalculoPercentual,
+                ct
+            );
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// RN21 — síndico decide compensar (total ou parcialmente, em uma ou
+    /// mais chamadas) o aporte pendente acumulado de um fundo, gerando a
+    /// transferência real da conta operacional para o fundo.
+    /// </summary>
+    [HttpPost("fundos/{fundoId:guid}/compensar-aporte")]
+    [RequerPermissao(Modulos.TransferenciasAreaAcerto, NivelPermissao.Editar)]
+    public async Task<ActionResult<TransferenciaResponse>> CompensarAporte(
+        Guid condominioId,
+        Guid fundoId,
+        CompensarAporteRequest request,
+        CancellationToken ct
+    )
+    {
+        var fundoPertenceAoCondominio = await _db.ContasBancarias.AnyAsync(
+            c => c.Id == fundoId && c.CondominioId == condominioId,
+            ct
+        );
+        if (!fundoPertenceAoCondominio)
+            return NotFound("Fundo não encontrado neste condomínio.");
+
+        try
+        {
+            var transferencia = await _areaDeAcerto.ExecutarCompensacaoAporteAsync(
+                fundoId,
+                request.ValorAExecutar,
+                ct
+            );
+
+            var contas = await _db
+                .ContasBancarias.Where(c =>
+                    c.Id == transferencia.ContaOrigemId || c.Id == transferencia.ContaDestinoId
+                )
+                .ToDictionaryAsync(c => c.Id, c => c.Nome, ct);
+
+            return Ok(
+                new TransferenciaResponse(
+                    transferencia.Id,
+                    transferencia.ContaOrigemId,
+                    contas.GetValueOrDefault(transferencia.ContaOrigemId, ""),
+                    transferencia.ContaDestinoId,
+                    contas.GetValueOrDefault(transferencia.ContaDestinoId, ""),
+                    transferencia.Valor,
+                    transferencia.Tipo,
+                    transferencia.Modo,
+                    transferencia.Origem,
+                    transferencia.Motivo,
+                    transferencia.Status,
+                    transferencia.DataExecucao
+                )
+            );
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }
