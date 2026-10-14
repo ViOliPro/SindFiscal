@@ -107,6 +107,9 @@ export interface Fornecedor {
   id: string
   nome: string
   categoria: string
+  telefone: string | null
+  email: string | null
+  observacoes: string | null
   avaliacaoNota: number | null
   avaliacaoComentario: string | null
 }

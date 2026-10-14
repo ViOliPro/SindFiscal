@@ -7,8 +7,10 @@ import {
   ajustarValorCompromisso,
   adiarCompromisso,
   cancelarCompromisso,
+  concluirCompromisso,
   criarCompromissoAvulso,
   entrarNaFila,
+  iniciarExecucao,
   listarCompromissos,
   listarDecisoes,
   obterCompromisso,
@@ -128,6 +130,14 @@ function DetalheCompromisso({
     mutationFn: () => adiarCompromisso(condominioId, compromissoId),
     onSuccess: invalidarTudo,
   })
+  const iniciarM = useMutation({
+    mutationFn: () => iniciarExecucao(condominioId, compromissoId),
+    onSuccess: invalidarTudo,
+  })
+  const concluirM = useMutation({
+    mutationFn: () => concluirCompromisso(condominioId, compromissoId),
+    onSuccess: invalidarTudo,
+  })
 
   if (detalheQ.isLoading) return <p className="muted">Carregando detalhe…</p>
   if (!detalheQ.data) return null
@@ -190,7 +200,7 @@ function DetalheCompromisso({
         </div>
       )}
 
-      {!ehGastoVinculado && podeAjustarOuCancelar && compromisso.status !== 'em_fila_execucao' && (
+      {!ehGastoVinculado && podeAjustarOuCancelar && (
         <form
           onSubmit={gastoForm.handleSubmit((d) => vincularM.mutate(d))}
           style={{ display: 'grid', gap: '0.6rem', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', alignItems: 'end' }}
@@ -233,13 +243,33 @@ function DetalheCompromisso({
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         {compromisso.status === 'aguardando_execucao' && (
-          <button type="button" className="btn btn-primary" onClick={() => entrarFilaM.mutate()} disabled={entrarFilaM.isPending}>
-            Entrar na fila de execução
-          </button>
+          <>
+            <button type="button" className="btn btn-primary" onClick={() => entrarFilaM.mutate()} disabled={entrarFilaM.isPending}>
+              Entrar na fila de execução
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => iniciarM.mutate()} disabled={iniciarM.isPending}>
+              Iniciar execução
+            </button>
+          </>
         )}
         {compromisso.status === 'em_fila_execucao' && (
-          <button type="button" className="btn btn-ghost" onClick={() => adiarM.mutate()} disabled={adiarM.isPending}>
-            Adiar (RN12)
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => adiarM.mutate()} disabled={adiarM.isPending}>
+              Adiar (sair da fila)
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => iniciarM.mutate()} disabled={iniciarM.isPending}>
+              Iniciar execução
+            </button>
+          </>
+        )}
+        {compromisso.status === 'em_execucao' && (
+          <button type="button" className="btn btn-primary" onClick={() => concluirM.mutate()} disabled={concluirM.isPending}>
+            Concluir
+          </button>
+        )}
+        {(compromisso.status === 'em_fila_execucao' || compromisso.status === 'em_execucao' || compromisso.status === 'aguardando_execucao') && (
+          <button type="button" className="btn btn-ghost" onClick={() => concluirM.mutate()} disabled={concluirM.isPending}>
+            Marcar como concluído
           </button>
         )}
         {podeAjustarOuCancelar && (
@@ -255,6 +285,10 @@ function DetalheCompromisso({
         )}
       </div>
       <ErroApi error={cancelarM.error} />
+      <ErroApi error={adiarM.error} />
+      <ErroApi error={iniciarM.error} />
+      <ErroApi error={concluirM.error} />
+      <ErroApi error={entrarFilaM.error} />
     </div>
   )
 }
@@ -325,12 +359,11 @@ function PainelCompromissos({ condominioId }: { condominioId: string }) {
 
       {compromissosQ.isLoading && <p className="muted">Carregando…</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {compromissosQ.data?.map((c) => (
+        {compromissosQ.data?.filter((c) => !c.compromissoPaiId).map((c) => (
           <div key={c.id} style={{ padding: '1rem', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
-                <strong>{c.categoria}</strong>{' '}
-                {c.compromissoPaiId && <span className="muted" style={{ fontSize: '0.8rem' }}>(gasto vinculado)</span>}
+                <strong>{c.categoria}</strong>
                 <div className="muted" style={{ fontSize: '0.8rem' }}>
                   {formatMoney(c.valorAprovado)}
                   {c.prioridadeFila !== null && ` — posição na fila: ${c.prioridadeFila}`}

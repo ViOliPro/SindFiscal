@@ -56,10 +56,6 @@ public class AppDbContext : DbContext
                 .HasConversion(SnakeCaseEnumConverter.Create<PapelUsuario>())
                 .HasMaxLength(20)
                 .IsRequired();
-            // v1 — hash simples (SHA256+salt, ver AuthController.HashSenha); nullable
-            // porque usuários existentes antes desta coluna ainda não têm hash
-            // (aceitos em modo bootstrap até definirem senha — ver AuthController.Login).
-            e.Property(x => x.SenhaHash).HasMaxLength(255);
         });
 
         // ---------------------------------------------------------------- CONDOMINIO
@@ -131,13 +127,17 @@ public class AppDbContext : DbContext
                 .HasMaxLength(30)
                 .IsRequired();
             e.Property(x => x.RegraAporteTipo)
-                .HasConversion(SnakeCaseEnumConverter.Create<TipoRegraAporte>())
+                .HasConversion(SnakeCaseEnumConverter.CreateNullable<TipoRegraAporte>())
                 .HasMaxLength(12);
             e.Property(x => x.RegraAporteValor).HasPrecision(precisaoMoeda, escalaMoeda);
             e.Property(x => x.TetoMaximo).HasPrecision(precisaoMoeda, escalaMoeda);
             e.Property(x => x.SaldoAtual).HasPrecision(precisaoMoeda, escalaMoeda);
             e.Property(x => x.AportePendenteAcumulado).HasPrecision(precisaoMoeda, escalaMoeda);
             e.HasIndex(x => x.CondominioId).HasDatabaseName("ix_conta_bancaria_condominio");
+            // Nome único por condomínio
+            e.HasIndex(x => new { x.CondominioId, x.Nome })
+                .IsUnique()
+                .HasDatabaseName("uq_conta_nome_por_condominio");
             // No máximo uma conta operacional por condomínio (índice único parcial —
             // ver database/schema.sql). Nome explícito garante que o EF Core trate
             // isto como um índice distinto do índice simples acima.
@@ -188,6 +188,9 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Nome).HasMaxLength(150).IsRequired();
             e.Property(x => x.Categoria).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Telefone).HasMaxLength(30);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
             e.HasIndex(x => x.SindicoId);
             e.HasOne(x => x.Sindico)
                 .WithMany(u => u.FornecedoresCadastrados)
@@ -202,7 +205,7 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Categoria).HasMaxLength(60).IsRequired();
             e.Property(x => x.Prioridade)
-                .HasConversion(SnakeCaseEnumConverter.Create<Prioridade>())
+                .HasConversion(SnakeCaseEnumConverter.CreateNullable<Prioridade>())
                 .HasMaxLength(10);
             e.Property(x => x.Situacao)
                 .HasConversion(SnakeCaseEnumConverter.Create<SituacaoNecessidade>())
@@ -454,6 +457,10 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Condominio)
+                .WithMany()
+                .HasForeignKey(x => x.CondominioId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

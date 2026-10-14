@@ -10,16 +10,10 @@ namespace SindFiscal.Entities;
 public class RegistroAuditoria
 {
     public Guid Id { get; set; }
+    /// <summary>Condomínio de contexto da alteração (quando aplicável).</summary>
+    public Guid? CondominioId { get; set; }
     public string EntidadeTipo { get; set; } = null!;
     public Guid EntidadeId { get; set; }
-
-    /// <summary>
-    /// Escopo de condomínio, quando aplicável — permite filtrar o histórico
-    /// por condomínio (RF19, módulo 10). Nulo para entidades que não
-    /// pertencem a um único condomínio (ex.: Fornecedor, RN04).
-    /// </summary>
-    public Guid? CondominioId { get; set; }
-
     public Guid UsuarioId { get; set; }
     public DateTimeOffset DataHora { get; set; }
     public string CampoAlterado { get; set; } = null!;
@@ -28,4 +22,5 @@ public class RegistroAuditoria
 
     // Navegação
     public Usuario Usuario { get; set; } = null!;
+    public Condominio? Condominio { get; set; }
 }

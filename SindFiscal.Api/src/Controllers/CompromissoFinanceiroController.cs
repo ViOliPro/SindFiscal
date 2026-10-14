@@ -273,7 +273,7 @@ public class CompromissoFinanceiroController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>RN12 — adia um compromisso já em fila, mandando-o para o final (em favor de outros de maior prioridade).</summary>
+    /// <summary>Adia: remove da fila e volta para AguardandoExecucao.</summary>
     [HttpPost("{compromissoId:guid}/adiar")]
     [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
     public async Task<IActionResult> Adiar(
@@ -288,7 +288,67 @@ public class CompromissoFinanceiroController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new { message = ex.Message });
+        }
+        return NoContent();
+    }
+
+    /// <summary>Sai da fila (mesmo efeito de adiar).</summary>
+    [HttpPost("{compromissoId:guid}/sair-da-fila")]
+    [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
+    public async Task<IActionResult> SairDaFila(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await _filaExecucao.SairDaFilaAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        return NoContent();
+    }
+
+    /// <summary>Inicia execução (EmFila / Aguardando → EmExecucao).</summary>
+    [HttpPost("{compromissoId:guid}/iniciar-execucao")]
+    [RequerPermissao(Modulos.PagamentosFilaExecucao, NivelPermissao.Editar)]
+    public async Task<IActionResult> IniciarExecucao(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await _filaExecucao.IniciarExecucaoAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        return NoContent();
+    }
+
+    /// <summary>Conclui o compromisso.</summary>
+    [HttpPost("{compromissoId:guid}/concluir")]
+    [RequerPermissao(Modulos.DecisoesCompromissos, NivelPermissao.Editar)]
+    public async Task<IActionResult> Concluir(
+        Guid condominioId,
+        Guid compromissoId,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await _filaExecucao.ConcluirAsync(condominioId, compromissoId, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
         }
         return NoContent();
     }
@@ -308,7 +368,7 @@ public class CompromissoFinanceiroController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new { message = ex.Message });
         }
         return NoContent();
     }

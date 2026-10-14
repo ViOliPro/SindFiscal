@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using SindFiscal.Authorization;
-using SindFiscal.Data;
-using SindFiscal.Data.Enums;
 using SindFiscal.Dtos;
 using SindFiscal.Entities;
+using SindFiscal.Services;
 
 namespace SindFiscal.Controllers;
 
@@ -14,20 +12,15 @@ namespace SindFiscal.Controllers;
 [RequerPermissao(Modulos.ContasLancamentos)]
 public class ContaBancariaController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ContaBancariaService _service;
 
-    public ContaBancariaController(AppDbContext db) => _db = db;
+    public ContaBancariaController(ContaBancariaService service) => _service = service;
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ContaBancariaResponse>>> Listar(
         Guid condominioId, CancellationToken ct)
     {
-        var contas = await _db.ContasBancarias
-            .Where(c => c.CondominioId == condominioId)
-            .OrderByDescending(c => c.EhContaOperacional)
-            .ThenBy(c => c.Nome)
-            .ToListAsync(ct);
-
+        var contas = await _service.ListarAsync(condominioId, ct);
         return Ok(contas.Select(ParaResponse).ToList());
     }
 
@@ -36,31 +29,22 @@ public class ContaBancariaController : ControllerBase
     public async Task<ActionResult<ContaBancariaResponse>> Criar(
         Guid condominioId, CriarContaBancariaRequest request, CancellationToken ct)
     {
-        if (request.EhContaOperacional)
+        try
         {
-            var jaExiste = await _db.ContasBancarias.AnyAsync(
-                c => c.CondominioId == condominioId && c.EhContaOperacional, ct);
-            if (jaExiste)
-                return Conflict(new { message = "Já existe conta operacional neste condomínio." });
+            var conta = await _service.CriarAsync(condominioId, request, ct);
+            return CreatedAtAction(nameof(Listar), new { condominioId }, ParaResponse(conta));
         }
-
-        var conta = new ContaBancaria
+        catch (InvalidOperationException ex)
         {
-            Id = Guid.NewGuid(),
-            CondominioId = condominioId,
-            Nome = request.Nome.Trim(),
-            Finalidade = request.Finalidade,
-            EhContaOperacional = request.EhContaOperacional,
-            RegraAporteTipo = request.RegraAporteTipo,
-            RegraAporteValor = request.RegraAporteValor,
-            TetoMaximo = request.TetoMaximo,
-            SaldoAtual = 0,
-            AportePendenteAcumulado = 0,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        _db.ContasBancarias.Add(conta);
-        await _db.SaveChangesAsync(ct);
-        return CreatedAtAction(nameof(Listar), new { condominioId }, ParaResponse(conta));
+            // Conflitos de negócio (conta operacional, regra incompleta, condomínio inexistente)
+            if (ex.Message.Contains("Já existe conta operacional", StringComparison.OrdinalIgnoreCase))
+                return Conflict(new { message = ex.Message });
+
+            if (ex.Message.Contains("não encontrado", StringComparison.OrdinalIgnoreCase))
+                return NotFound(new { message = ex.Message });
+
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPatch("{contaId:guid}/regra-aporte")]
@@ -68,16 +52,35 @@ public class ContaBancariaController : ControllerBase
     public async Task<ActionResult<ContaBancariaResponse>> AtualizarRegraAporte(
         Guid condominioId, Guid contaId, AtualizarRegraAporteRequest request, CancellationToken ct)
     {
-        var conta = await _db.ContasBancarias.FirstOrDefaultAsync(
-            c => c.Id == contaId && c.CondominioId == condominioId, ct);
-        if (conta is null) return NotFound();
+        try
+        {
+            var conta = await _service.AtualizarRegraAporteAsync(condominioId, contaId, request, ct);
+            return Ok(ParaResponse(conta));
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("não encontrada", StringComparison.OrdinalIgnoreCase))
+                return NotFound(new { message = ex.Message });
 
-        conta.RegraAporteTipo = request.RegraAporteTipo;
-        conta.RegraAporteValor = request.RegraAporteValor;
-        conta.TetoMaximo = request.TetoMaximo;
-        conta.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
-        return Ok(ParaResponse(conta));
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{contaId:guid}")]
+    [RequerPermissao(Modulos.ContasLancamentos, NivelPermissao.Editar)]
+    public async Task<IActionResult> Excluir(Guid condominioId, Guid contaId, CancellationToken ct)
+    {
+        try
+        {
+            await _service.ExcluirAsync(condominioId, contaId, ct);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            if (ex.Message.Contains("não encontrada", StringComparison.OrdinalIgnoreCase))
+                return NotFound(new { message = ex.Message });
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     private static ContaBancariaResponse ParaResponse(ContaBancaria c) => new(

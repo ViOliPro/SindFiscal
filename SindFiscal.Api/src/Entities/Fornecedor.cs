@@ -8,6 +8,11 @@ public class Fornecedor
     public string Nome { get; set; } = null!;
     public string Categoria { get; set; } = null!;
 
+    /// <summary>Contatos opcionais (RF08).</summary>
+    public string? Telefone { get; set; }
+    public string? Email { get; set; }
+    public string? Observacoes { get; set; }
+
     /// <summary>Avaliação em estrelas, 1 a 5 (RF08). Nula até a primeira avaliação.</summary>
     public short? AvaliacaoNota { get; set; }
     public string? AvaliacaoComentario { get; set; }

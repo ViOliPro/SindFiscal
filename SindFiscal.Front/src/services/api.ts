@@ -133,6 +133,12 @@ export function atualizarRegraAporte(
   )
 }
 
+export function excluirConta(condominioId: string, contaId: string) {
+  return apiFetch<void>(`/condominios/${condominioId}/contas/${contaId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function listarLancamentos(
   condominioId: string,
   params?: { contaBancariaId?: string; de?: string; ate?: string },
@@ -195,10 +201,16 @@ export function listarFornecedores() {
   return apiFetch<Fornecedor[]>('/fornecedores')
 }
 
-export function criarFornecedor(nome: string, categoria: string) {
+export function criarFornecedor(data: {
+  nome: string
+  categoria: string
+  telefone?: string
+  email?: string
+  observacoes?: string
+}) {
   return apiFetch<Fornecedor>('/fornecedores', {
     method: 'POST',
-    body: JSON.stringify({ nome, categoria }),
+    body: JSON.stringify(data),
   })
 }
 
@@ -380,6 +392,27 @@ export function entrarNaFila(condominioId: string, compromissoId: string) {
 export function adiarCompromisso(condominioId: string, compromissoId: string) {
   return apiFetch<void>(
     `/condominios/${condominioId}/compromissos/${compromissoId}/adiar`,
+    { method: 'POST' },
+  )
+}
+
+export function sairDaFila(condominioId: string, compromissoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/sair-da-fila`,
+    { method: 'POST' },
+  )
+}
+
+export function iniciarExecucao(condominioId: string, compromissoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/iniciar-execucao`,
+    { method: 'POST' },
+  )
+}
+
+export function concluirCompromisso(condominioId: string, compromissoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/compromissos/${compromissoId}/concluir`,
     { method: 'POST' },
   )
 }
