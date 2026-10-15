@@ -14,6 +14,7 @@ const NAV = [
   { to: '/acerto', label: 'Área de Acerto' },
   { to: '/reservas', label: 'Reservas' },
   { to: '/documentos', label: 'Documentos' },
+  { to: '/acessos', label: 'Gestão de Acessos' },
   { to: '/admin', label: 'Condomínios / Usuários' },
 ]
 

@@ -89,6 +89,28 @@ CREATE TABLE permissao (
 CREATE INDEX ix_permissao_usuario_condominio ON permissao(usuario_id, condominio_id);
 
 -- ----------------------------------------------------------------------------
+-- MODELO_ACESSO (RF03 — perfis reutilizáveis: Consulta, Operacional, Gestor...)
+-- São "moldes": aplicar um modelo COPIA os itens para a tabela permissao.
+-- ----------------------------------------------------------------------------
+CREATE TABLE modelo_acesso (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    sindico_id      uuid NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    nome            varchar(60) NOT NULL,
+    descricao       varchar(200),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz,
+    CONSTRAINT uq_modelo_acesso_nome UNIQUE (sindico_id, nome)
+);
+
+CREATE TABLE modelo_acesso_item (
+    id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    modelo_acesso_id    uuid NOT NULL REFERENCES modelo_acesso(id) ON DELETE CASCADE,
+    modulo              varchar(60) NOT NULL,
+    nivel               varchar(10) NOT NULL CHECK (nivel IN ('visualizar', 'editar')),
+    CONSTRAINT uq_modelo_acesso_item UNIQUE (modelo_acesso_id, modulo)
+);
+
+-- ----------------------------------------------------------------------------
 -- CONFIGURACAO_INTEGRACAO (RF15, RNF13 — 1:1 com condomínio, agnóstica)
 -- ----------------------------------------------------------------------------
 CREATE TABLE configuracao_integracao (

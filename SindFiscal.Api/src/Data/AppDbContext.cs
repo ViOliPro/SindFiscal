@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Condominio> Condominios => Set<Condominio>();
     public DbSet<Permissao> Permissoes => Set<Permissao>();
+    public DbSet<ModeloAcesso> ModelosAcesso => Set<ModeloAcesso>();
+    public DbSet<ModeloAcessoItem> ModelosAcessoItens => Set<ModeloAcessoItem>();
     public DbSet<ConfiguracaoIntegracao> ConfiguracoesIntegracao => Set<ConfiguracaoIntegracao>();
     public DbSet<ContaBancaria> ContasBancarias => Set<ContaBancaria>();
     public DbSet<Lancamento> Lancamentos => Set<Lancamento>();
@@ -105,6 +107,36 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Condominio)
                 .WithMany(c => c.Permissoes)
                 .HasForeignKey(x => x.CondominioId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---------------------------------------------------------------- MODELO DE ACESSO (RF03)
+        b.Entity<ModeloAcesso>(e =>
+        {
+            e.ToTable("modelo_acesso");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Descricao).HasMaxLength(200);
+            e.HasIndex(x => new { x.SindicoId, x.Nome }).IsUnique();
+            e.HasOne(x => x.Sindico)
+                .WithMany()
+                .HasForeignKey(x => x.SindicoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ModeloAcessoItem>(e =>
+        {
+            e.ToTable("modelo_acesso_item");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Modulo).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Nivel)
+                .HasConversion(SnakeCaseEnumConverter.Create<NivelPermissao>())
+                .HasMaxLength(10)
+                .IsRequired();
+            e.HasIndex(x => new { x.ModeloAcessoId, x.Modulo }).IsUnique();
+            e.HasOne(x => x.ModeloAcesso)
+                .WithMany(m => m.Itens)
+                .HasForeignKey(x => x.ModeloAcessoId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
