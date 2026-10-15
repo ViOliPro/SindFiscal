@@ -22,11 +22,19 @@ builder.Services.AddScoped<FilaExecucaoService>();
 builder.Services.AddScoped<ContaBancariaService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
+// Alinhado com AuthController e user-secrets: Jwt:Key | Jwt:Issuer | Jwt:Audience
 var chaveJwt =
-    builder.Configuration["Jwt:ChaveSecreta"]
+    builder.Configuration["Jwt:Key"]
+    ?? builder.Configuration["Jwt:key"]
     ?? throw new InvalidOperationException(
-        "Configuração Jwt:ChaveSecreta ausente (appsettings.json ou variável de ambiente)."
+        "Configuração Jwt:Key ausente (user-secrets, appsettings ou env)."
     );
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Configuração Jwt:Issuer ausente.");
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Configuração Jwt:Audience ausente.");
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -38,8 +46,8 @@ builder
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Emissor"],
-            ValidAudience = builder.Configuration["Jwt:Audiencia"],
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chaveJwt)),
         };
     });
@@ -55,27 +63,29 @@ builder.Services.AddAuthorization(opt =>
 // ---------------------------------------------------------------- CORS (front Vite)
 builder.Services.AddCors(opt =>
 {
-    opt.AddPolicy("Front", policy =>
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
+    opt.AddPolicy(
+        "Front",
+        policy =>
+            policy
+                .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
     );
 });
 
-builder.Services.AddControllers().AddJsonOptions(opt =>
-{
-    // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
-    // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
-    // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
-    // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
-    // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
-    opt.JsonSerializerOptions.Converters.Add(
-        new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
-    );
-});
+builder
+    .Services.AddControllers()
+    .AddJsonOptions(opt =>
+    {
+        // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
+        // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
+        // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
+        // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
+        // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
+        opt.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
+        );
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();

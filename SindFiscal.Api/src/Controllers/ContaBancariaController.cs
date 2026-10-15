@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SindFiscal.Authorization;
+using SindFiscal.Data.Enums;
 using SindFiscal.Dtos;
 using SindFiscal.Entities;
 using SindFiscal.Services;
@@ -18,7 +19,9 @@ public class ContaBancariaController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ContaBancariaResponse>>> Listar(
-        Guid condominioId, CancellationToken ct)
+        Guid condominioId,
+        CancellationToken ct
+    )
     {
         var contas = await _service.ListarAsync(condominioId, ct);
         return Ok(contas.Select(ParaResponse).ToList());
@@ -27,7 +30,10 @@ public class ContaBancariaController : ControllerBase
     [HttpPost]
     [RequerPermissao(Modulos.ContasLancamentos, NivelPermissao.Editar)]
     public async Task<ActionResult<ContaBancariaResponse>> Criar(
-        Guid condominioId, CriarContaBancariaRequest request, CancellationToken ct)
+        Guid condominioId,
+        CriarContaBancariaRequest request,
+        CancellationToken ct
+    )
     {
         try
         {
@@ -37,7 +43,12 @@ public class ContaBancariaController : ControllerBase
         catch (InvalidOperationException ex)
         {
             // Conflitos de negócio (conta operacional, regra incompleta, condomínio inexistente)
-            if (ex.Message.Contains("Já existe conta operacional", StringComparison.OrdinalIgnoreCase))
+            if (
+                ex.Message.Contains(
+                    "Já existe conta operacional",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
                 return Conflict(new { message = ex.Message });
 
             if (ex.Message.Contains("não encontrado", StringComparison.OrdinalIgnoreCase))
@@ -50,11 +61,20 @@ public class ContaBancariaController : ControllerBase
     [HttpPatch("{contaId:guid}/regra-aporte")]
     [RequerPermissao(Modulos.ContasLancamentos, NivelPermissao.Editar)]
     public async Task<ActionResult<ContaBancariaResponse>> AtualizarRegraAporte(
-        Guid condominioId, Guid contaId, AtualizarRegraAporteRequest request, CancellationToken ct)
+        Guid condominioId,
+        Guid contaId,
+        AtualizarRegraAporteRequest request,
+        CancellationToken ct
+    )
     {
         try
         {
-            var conta = await _service.AtualizarRegraAporteAsync(condominioId, contaId, request, ct);
+            var conta = await _service.AtualizarRegraAporteAsync(
+                condominioId,
+                contaId,
+                request,
+                ct
+            );
             return Ok(ParaResponse(conta));
         }
         catch (InvalidOperationException ex)
@@ -83,8 +103,16 @@ public class ContaBancariaController : ControllerBase
         }
     }
 
-    private static ContaBancariaResponse ParaResponse(ContaBancaria c) => new(
-        c.Id, c.Nome, c.Finalidade, c.EhContaOperacional,
-        c.RegraAporteTipo, c.RegraAporteValor, c.TetoMaximo,
-        c.SaldoAtual, c.AportePendenteAcumulado);
+    private static ContaBancariaResponse ParaResponse(ContaBancaria c) =>
+        new(
+            c.Id,
+            c.Nome,
+            c.Finalidade,
+            c.EhContaOperacional,
+            c.RegraAporteTipo,
+            c.RegraAporteValor,
+            c.TetoMaximo,
+            c.SaldoAtual,
+            c.AportePendenteAcumulado
+        );
 }

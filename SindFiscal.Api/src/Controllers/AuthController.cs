@@ -118,7 +118,18 @@ public class AuthController : ControllerBase
 
     private string GerarToken(Usuario usuario)
     {
-        var chave = _cfg["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:key ausente.");
+        // Mesmas chaves que Program.cs valida (Jwt:Key | Jwt:Issuer | Jwt:Audience)
+        var chave =
+            _cfg["Jwt:Key"]
+            ?? _cfg["Jwt:key"]
+            ?? throw new InvalidOperationException("Jwt:Key ausente.");
+        var issuer =
+            _cfg["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("Jwt:Issuer ausente.");
+        var audience =
+            _cfg["Jwt:Audience"]
+            ?? throw new InvalidOperationException("Jwt:Audience ausente.");
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chave));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -131,8 +142,8 @@ public class AuthController : ControllerBase
         };
 
         var token = new JwtSecurityToken(
-            issuer: _cfg["Jwt:Issuer"],
-            audience: _cfg["Jwt:Audience"],
+            issuer: issuer,
+            audience: audience,
             claims: claims,
             expires: DateTime.UtcNow.AddHours(12),
             signingCredentials: creds

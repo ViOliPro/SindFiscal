@@ -6,7 +6,16 @@ public class Condominio
     public Guid Id { get; set; }
     public Guid SindicoId { get; set; }
     public string Nome { get; set; } = null!;
+
+    /// <summary>CNPJ opcional. Quando informado, deve ser único no sistema.</summary>
+    public string? Cnpj { get; set; }
+
     public bool PossuiIntegracaoApi { get; set; }
+
+    /// <summary>
+    /// Soft-delete. false = inativo (oculto nas listagens padrão; histórico preservado).
+    /// </summary>
+    public bool Ativo { get; set; } = true;
 
     /// <summary>
     /// RF10, RN07 — valor de alçada a partir do qual um compromisso exigiria

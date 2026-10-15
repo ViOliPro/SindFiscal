@@ -25,23 +25,26 @@
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto; -- fornece gen_random_uuid()
 
+
 -- ----------------------------------------------------------------------------
 -- USUARIO
 -- ----------------------------------------------------------------------------
 CREATE TABLE usuario (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     nome            varchar(150) NOT NULL,
-    papel           varchar(20) NOT NULL
     email           varchar(200) NOT NULL UNIQUE,
-    senha_hash      varchar(200) NOT NULL UNIQUE,
+    papel           varchar(20) NOT NULL
                         CHECK (papel IN ('sindico', 'colaborador', 'conselheiro_fiscal')),
     ativo           boolean NOT NULL DEFAULT true,
-    senha_hash      varchar(255),   -- RF01 — hash simples v1 (SHA256+salt); nulo = bootstrap sem senha definida
+    -- RF01 — hash simples v1 (SHA256+salt); NÃO é UNIQUE (vários usuários podem
+    -- compartilhar senha provisória; com salt fixo o hash colide).
+    senha_hash      varchar(255),
     created_at      timestamptz NOT NULL DEFAULT now(),
     updated_at      timestamptz
 );
 
 COMMENT ON TABLE usuario IS 'RF01, RF03 — síndico, colaboradores e conselheiros fiscais (RN29, RN30).';
+COMMENT ON COLUMN usuario.senha_hash IS 'Hash SHA256+salt v1; NÃO é UNIQUE.';
 
 -- ----------------------------------------------------------------------------
 -- CONDOMINIO
@@ -50,15 +53,23 @@ CREATE TABLE condominio (
     id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     sindico_id              uuid NOT NULL REFERENCES usuario(id),
     nome                    varchar(150) NOT NULL,
+    cnpj                    varchar(18),  -- opcional; UNIQUE quando informado
     possui_integracao_api   boolean NOT NULL DEFAULT false,
-    valor_alcada_aprovacao  numeric(14,2),  -- RF10, RN07: alçada p/ validação do Conselho Fiscal, por condomínio
+    ativo                   boolean NOT NULL DEFAULT true,  -- soft-delete
+    valor_alcada_aprovacao  numeric(14,2),  -- RF10, RN07
     created_at              timestamptz NOT NULL DEFAULT now(),
     updated_at              timestamptz
 );
 
 CREATE INDEX ix_condominio_sindico ON condominio(sindico_id);
+CREATE INDEX ix_condominio_ativo ON condominio(ativo);
+CREATE UNIQUE INDEX uq_condominio_cnpj
+    ON condominio (cnpj)
+    WHERE cnpj IS NOT NULL AND btrim(cnpj) <> '';
 
-COMMENT ON TABLE condominio IS 'RF02 — condomínio administrado por um síndico (RN03: fonte de verdade não presumida como igual entre condomínios).';
+COMMENT ON TABLE condominio IS 'RF02 — condomínio administrado por um síndico (RN03).';
+COMMENT ON COLUMN condominio.cnpj IS 'CNPJ opcional; UNIQUE quando informado.';
+COMMENT ON COLUMN condominio.ativo IS 'Soft-delete: false = inativo (não listado por padrão).';
 
 -- ----------------------------------------------------------------------------
 -- PERMISSAO (RF03, RN23/RN29 — granular por usuário/condomínio/módulo)

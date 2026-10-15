@@ -16,8 +16,11 @@ public class CondominioController : ControllerBase
 
     public CondominioController(AppDbContext db) => _db = db;
 
+    /// <summary>Lista condomínios ativos do síndico (ou com permissão). ?incluirInativos=true para ver soft-deleted.</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CondominioResponse>>> Listar(CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<CondominioResponse>>> Listar(
+        [FromQuery] bool incluirInativos = false,
+        CancellationToken ct = default)
     {
         var usuarioId = UsuarioId();
         if (usuarioId is null) return Unauthorized();
@@ -39,6 +42,9 @@ public class CondominioController : ControllerBase
             query = query.Where(c => ids.Contains(c.Id));
         }
 
+        if (!incluirInativos)
+            query = query.Where(c => c.Ativo);
+
         var lista = await query.OrderBy(c => c.Nome).ToListAsync(ct);
         return Ok(lista.Select(ParaResponse).ToList());
     }
@@ -54,12 +60,27 @@ public class CondominioController : ControllerBase
         if (usuario is null || usuario.Papel != PapelUsuario.Sindico)
             return Forbid();
 
+        var nome = request.Nome?.Trim() ?? "";
+        if (string.IsNullOrEmpty(nome))
+            return BadRequest(new { message = "Nome é obrigatório." });
+
+        var cnpj = NormalizarCnpj(request.Cnpj);
+        if (cnpj is not null)
+        {
+            var cnpjEmUso = await _db.Condominios.AnyAsync(
+                c => c.Cnpj == cnpj, ct);
+            if (cnpjEmUso)
+                return Conflict(new { message = "CNPJ já cadastrado em outro condomínio." });
+        }
+
         var condominio = new Condominio
         {
             Id = Guid.NewGuid(),
             SindicoId = usuarioId.Value,
-            Nome = request.Nome.Trim(),
+            Nome = nome,
+            Cnpj = cnpj,
             PossuiIntegracaoApi = false,
+            Ativo = true,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         _db.Condominios.Add(condominio);
@@ -86,21 +107,81 @@ public class CondominioController : ControllerBase
         if (usuarioId is null) return Unauthorized();
 
         if (request.ValorAlcadaAprovacao is < 0)
-            return BadRequest("Valor de alçada não pode ser negativo.");
+            return BadRequest(new { message = "Valor de alçada não pode ser negativo." });
+
+        var nome = request.Nome?.Trim() ?? "";
+        if (string.IsNullOrEmpty(nome))
+            return BadRequest(new { message = "Nome é obrigatório." });
 
         var c = await _db.Condominios.FirstOrDefaultAsync(
             x => x.Id == condominioId && x.SindicoId == usuarioId, ct);
         if (c is null) return NotFound();
 
-        c.Nome = request.Nome.Trim();
+        var cnpj = NormalizarCnpj(request.Cnpj);
+        if (cnpj is not null)
+        {
+            var cnpjEmUso = await _db.Condominios.AnyAsync(
+                x => x.Cnpj == cnpj && x.Id != condominioId, ct);
+            if (cnpjEmUso)
+                return Conflict(new { message = "CNPJ já cadastrado em outro condomínio." });
+        }
+
+        c.Nome = nome;
+        c.Cnpj = cnpj;
         c.ValorAlcadaAprovacao = request.ValorAlcadaAprovacao;
         c.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         return Ok(ParaResponse(c));
     }
 
+    /// <summary>Soft-delete: marca Ativo=false. Histórico financeiro preservado.</summary>
+    [HttpDelete("{condominioId:guid}")]
+    public async Task<IActionResult> Excluir(Guid condominioId, CancellationToken ct)
+    {
+        var usuarioId = UsuarioId();
+        if (usuarioId is null) return Unauthorized();
+
+        var c = await _db.Condominios.FirstOrDefaultAsync(
+            x => x.Id == condominioId && x.SindicoId == usuarioId, ct);
+        if (c is null) return NotFound();
+
+        if (!c.Ativo)
+            return NoContent(); // já inativo
+
+        c.Ativo = false;
+        c.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Reativa condomínio soft-deleted.</summary>
+    [HttpPost("{condominioId:guid}/reativar")]
+    public async Task<ActionResult<CondominioResponse>> Reativar(
+        Guid condominioId, CancellationToken ct)
+    {
+        var usuarioId = UsuarioId();
+        if (usuarioId is null) return Unauthorized();
+
+        var c = await _db.Condominios.FirstOrDefaultAsync(
+            x => x.Id == condominioId && x.SindicoId == usuarioId, ct);
+        if (c is null) return NotFound();
+
+        c.Ativo = true;
+        c.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return Ok(ParaResponse(c));
+    }
+
     private static CondominioResponse ParaResponse(Condominio c) =>
-        new(c.Id, c.Nome, c.PossuiIntegracaoApi, c.ValorAlcadaAprovacao);
+        new(c.Id, c.Nome, c.Cnpj, c.PossuiIntegracaoApi, c.ValorAlcadaAprovacao, c.Ativo);
+
+    /// <summary>Mantém só dígitos; retorna null se vazio. Aceita formatado ou não.</summary>
+    private static string? NormalizarCnpj(string? cnpj)
+    {
+        if (string.IsNullOrWhiteSpace(cnpj)) return null;
+        var digits = new string(cnpj.Where(char.IsDigit).ToArray());
+        return digits.Length == 0 ? null : digits;
+    }
 
     private Guid? UsuarioId()
     {

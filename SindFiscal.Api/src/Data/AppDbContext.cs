@@ -64,12 +64,20 @@ public class AppDbContext : DbContext
             e.ToTable("condominio");
             e.HasKey(x => x.Id);
             e.Property(x => x.Nome).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Cnpj).HasMaxLength(18);
+            // UNIQUE parcial: vários NULL ok; CNPJ informado único
+            e.HasIndex(x => x.Cnpj)
+                .IsUnique()
+                .HasFilter("cnpj IS NOT NULL AND btrim(cnpj) <> ''")
+                .HasDatabaseName("uq_condominio_cnpj");
             e.Property(x => x.ValorAlcadaAprovacao).HasPrecision(precisaoMoeda, escalaMoeda);
+            e.Property(x => x.Ativo).IsRequired().HasDefaultValue(true);
             e.HasOne(x => x.Sindico)
                 .WithMany(u => u.CondominiosAdministrados)
                 .HasForeignKey(x => x.SindicoId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.SindicoId);
+            e.HasIndex(x => x.Ativo);
         });
 
         // ---------------------------------------------------------------- PERMISSAO
