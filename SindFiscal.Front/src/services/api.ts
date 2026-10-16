@@ -41,6 +41,7 @@ import type {
   Pendencias,
   ProjecaoFundos,
   ReceitaRecorrente,
+  RelatorioMensal,
 } from "@/types";
 
 // ---------------------------------------------------------------- Auth
@@ -790,6 +791,21 @@ export function reativarConciliacao(condominioId: string, lancamentoId: string) 
   return apiFetch<void>(
     `/condominios/${condominioId}/pendencias/lancamentos/${lancamentoId}/reativar`,
     { method: "POST" },
+  );
+}
+
+// ---------------------------------------------------------------- Relatório mensal (RF18)
+export function obterRelatorioMensal(
+  condominioId: string,
+  competencia: string,
+  opcoes: { limiarVariacao?: number; valorMinimo?: number } = {},
+) {
+  const q = new URLSearchParams({ competencia });
+  if (opcoes.limiarVariacao != null)
+    q.set("limiarVariacao", String(opcoes.limiarVariacao));
+  if (opcoes.valorMinimo != null) q.set("valorMinimo", String(opcoes.valorMinimo));
+  return apiFetch<RelatorioMensal>(
+    `/condominios/${condominioId}/relatorios/mensal?${q}`,
   );
 }
 

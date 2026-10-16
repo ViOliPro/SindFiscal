@@ -192,3 +192,17 @@ public enum TipoPendencia
     NecessidadeSemValor,
 }
 
+/// <summary>
+/// RF18 — classificação de uma despesa no relatório mensal, por categoria:
+/// SemVinculo = saída sem pagamento/compromisso; NovaDespesa = categoria sem
+/// gasto no mês anterior; PontoParaConferencia = variação relevante contra o mês
+/// anterior (percentual e valor mínimo); Regular = demais.
+/// </summary>
+public enum ClassificacaoDespesa
+{
+    Regular,
+    NovaDespesa,
+    PontoParaConferencia,
+    SemVinculo,
+}
+

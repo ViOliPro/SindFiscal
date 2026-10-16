@@ -13,6 +13,7 @@ const NAV = [
   { to: '/pagamentos', label: 'Pagamentos / Fila' },
   { to: '/despesas-futuras', label: 'Despesas Futuras' },
   { to: '/pendencias', label: 'Pendências' },
+  { to: '/relatorio-mensal', label: 'Relatório Mensal' },
   { to: '/acerto', label: 'Área de Acerto' },
   { to: '/receitas-recorrentes', label: 'Receitas Recorrentes' },
   { to: '/reservas', label: 'Reservas' },

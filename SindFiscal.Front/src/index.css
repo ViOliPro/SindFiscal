@@ -513,3 +513,36 @@ button.acessos-stat {
   text-align: right !important;
   white-space: nowrap;
 }
+
+/* ---- Relatório mensal: impressão / PDF ---- */
+.rm-aviso {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-warning);
+  margin-bottom: 1rem;
+}
+.rm-resumo p {
+  margin-bottom: 0.4rem;
+}
+.rm-secao {
+  margin-bottom: 1rem;
+  break-inside: avoid;
+}
+@media print {
+  .sidebar,
+  .topbar,
+  .no-print {
+    display: none !important;
+  }
+  .app-shell {
+    display: block;
+  }
+  .content {
+    padding: 0;
+    overflow: visible;
+  }
+  .card {
+    box-shadow: none;
+  }
+}
+

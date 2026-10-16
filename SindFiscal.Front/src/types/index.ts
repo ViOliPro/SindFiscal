@@ -534,3 +534,78 @@ export interface Pendencias {
   itens: Pendencia[];
 }
 
+// ---------------------------------------------------------------- Relatório mensal (RF18)
+export type ClassificacaoDespesa =
+  | "regular"
+  | "nova_despesa"
+  | "ponto_para_conferencia"
+  | "sem_vinculo";
+
+export const CLASSIFICACAO_DESPESA_LABEL: Record<ClassificacaoDespesa, string> = {
+  regular: "Regular",
+  nova_despesa: "Nova despesa",
+  ponto_para_conferencia: "Ponto para conferência",
+  sem_vinculo: "Sem vínculo",
+};
+
+export interface ResumoMensal {
+  entradas: number;
+  saidas: number;
+  resultado: number;
+  quantidadeLancamentos: number;
+}
+
+export interface MovimentacaoContaMensal {
+  contaId: string;
+  nome: string;
+  finalidade: FinalidadeConta;
+  ehContaOperacional: boolean;
+  entradas: number;
+  saidas: number;
+  liquido: number;
+  saldoAtual: number;
+}
+
+export interface DespesaCategoriaMensal {
+  categoria: string;
+  totalMes: number;
+  totalMesAnterior: number;
+  variacao: number;
+  variacaoPercentual: number | null;
+  classificacao: ClassificacaoDespesa;
+  quantidade: number;
+}
+
+export interface DespesaMensal {
+  lancamentoId: string;
+  data: string;
+  descricao: string;
+  contaNome: string;
+  categoria: string;
+  fundoResponsavelId: string | null;
+  fundoResponsavelNome: string | null;
+  valor: number;
+  classificacao: ClassificacaoDespesa;
+  conciliacaoDispensada: boolean;
+}
+
+export interface RelatorioMensal {
+  competencia: string;
+  inicio: string;
+  fim: string;
+  parcial: boolean;
+  limiarVariacao: number;
+  valorMinimoVariacao: number;
+  resumo: ResumoMensal;
+  mesAnterior: ResumoMensal;
+  pagamentosRegistradosNoMes: number;
+  compromissosAprovadosNoMes: number;
+  valorCompromissosAprovadosNoMes: number;
+  porConta: MovimentacaoContaMensal[];
+  despesasPorCategoria: DespesaCategoriaMensal[];
+  despesas: DespesaMensal[];
+  concentracaoTop3: number;
+  transferenciasExecutadas: Transferencia[];
+  pendenciasAbertas: number;
+}
+
