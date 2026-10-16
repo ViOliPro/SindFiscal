@@ -417,6 +417,9 @@ export interface DespesaFutura {
   quantidadeCotacoes: number | null;
   prioridadeFila: number | null;
   atrasada: boolean;
+  /** Fornecedor da cotação escolhida na aprovação; nulo se Planejada ou sem cotação escolhida. */
+  fornecedorId: string | null;
+  fornecedorNome: string | null;
 }
 
 export interface ListaDespesasFuturas {
@@ -432,6 +435,7 @@ export interface FiltroDespesasFuturas {
   semFundo?: boolean;
   etapa?: EtapaDespesaFutura;
   prioridade?: Prioridade;
+  fornecedorId?: string;
   /** DateOnly → "YYYY-MM-DD" */
   de?: string;
   ate?: string;
@@ -478,4 +482,3 @@ export const ETAPA_DESPESA_FUTURA_LABEL: Record<EtapaDespesaFutura, string> = {
   aprovada: "Aprovada",
   contratada: "Contratada",
 };
-

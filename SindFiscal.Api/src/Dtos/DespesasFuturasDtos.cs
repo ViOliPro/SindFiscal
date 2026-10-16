@@ -27,7 +27,14 @@ public record DespesaFuturaResponse(
     int? QuantidadeCotacoes,
     int? PrioridadeFila,
     /// <summary>true quando a data prevista já passou e o item continua aberto.</summary>
-    bool Atrasada
+    bool Atrasada,
+    /// <summary>
+    /// Fornecedor da cotação escolhida na decisão de aprovação mais recente da
+    /// necessidade de origem. Nulo para itens Planejados (ainda sem decisão) e
+    /// para compromissos avulsos ou sem cotação escolhida.
+    /// </summary>
+    Guid? FornecedorId,
+    string? FornecedorNome
 );
 
 public record ListaDespesasFuturasResponse(

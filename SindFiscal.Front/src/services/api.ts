@@ -658,6 +658,7 @@ export function listarDespesasFuturas(
   if (filtro.semFundo) q.set("semFundo", "true");
   if (filtro.etapa) q.set("etapa", filtro.etapa);
   if (filtro.prioridade) q.set("prioridade", filtro.prioridade);
+  if (filtro.fornecedorId) q.set("fornecedorId", filtro.fornecedorId);
   if (filtro.de) q.set("de", filtro.de);
   if (filtro.ate) q.set("ate", filtro.ate);
   if (filtro.busca) q.set("busca", filtro.busca);
@@ -715,4 +716,3 @@ export function definirFundoNoPlanejamento(
     { method: "PUT", body: JSON.stringify({ considerar }) },
   );
 }
-
