@@ -36,7 +36,10 @@ import type {
   Reserva,
   ListaDespesasFuturas,
   FiltroDespesasFuturas,
+  GerarRecorrentesPeriodoResultado,
+  MotivoTransferencia,
   ProjecaoFundos,
+  ReceitaRecorrente,
 } from "@/types";
 
 // ---------------------------------------------------------------- Auth
@@ -716,3 +719,52 @@ export function definirFundoNoPlanejamento(
     { method: "PUT", body: JSON.stringify({ considerar }) },
   );
 }
+
+// ---------------------------------------------------------------- Receitas recorrentes (RF14, RN20, RN22)
+export interface ReceitaRecorrenteInput {
+  descricao: string;
+  valor: number;
+  contaOrigemId: string | null;
+  contaDestinoId: string;
+  motivo: MotivoTransferencia;
+  dataInicio: string;
+  dataFim: string | null;
+}
+
+export function listarReceitasRecorrentes(condominioId: string) {
+  return apiFetch<ReceitaRecorrente[]>(
+    `/condominios/${condominioId}/receitas-recorrentes`,
+  );
+}
+
+export function criarReceitaRecorrente(
+  condominioId: string,
+  data: ReceitaRecorrenteInput,
+) {
+  return apiFetch<ReceitaRecorrente>(
+    `/condominios/${condominioId}/receitas-recorrentes`,
+    { method: "POST", body: JSON.stringify(data) },
+  );
+}
+
+export function atualizarReceitaRecorrente(
+  condominioId: string,
+  id: string,
+  data: ReceitaRecorrenteInput & { ativa: boolean },
+) {
+  return apiFetch<ReceitaRecorrente>(
+    `/condominios/${condominioId}/receitas-recorrentes/${id}`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function gerarRecorrentesDoPeriodo(
+  condominioId: string,
+  periodoReferencia: string,
+) {
+  return apiFetch<GerarRecorrentesPeriodoResultado>(
+    `/condominios/${condominioId}/receitas-recorrentes/gerar-periodo`,
+    { method: "POST", body: JSON.stringify({ periodoReferencia }) },
+  );
+}
+

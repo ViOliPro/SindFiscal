@@ -156,7 +156,8 @@ public class DashboardController : ControllerBase
                 t.Origem,
                 t.Motivo,
                 t.Status,
-                t.DataExecucao
+                t.DataExecucao,
+                t.Descricao
             ))
             .ToListAsync(ct);
 

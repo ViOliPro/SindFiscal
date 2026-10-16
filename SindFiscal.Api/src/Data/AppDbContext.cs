@@ -38,6 +38,7 @@ public class AppDbContext : DbContext
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
     public DbSet<Reserva> Reservas => Set<Reserva>();
     public DbSet<Transferencia> Transferencias => Set<Transferencia>();
+    public DbSet<ReceitaRecorrente> ReceitasRecorrentes => Set<ReceitaRecorrente>();
     public DbSet<Documento> Documentos => Set<Documento>();
     public DbSet<RegistroAuditoria> RegistrosAuditoria => Set<RegistroAuditoria>();
 
@@ -434,10 +435,54 @@ public class AppDbContext : DbContext
                 .HasConversion(SnakeCaseEnumConverter.Create<StatusTransferencia>())
                 .HasMaxLength(16)
                 .IsRequired();
+            e.Property(x => x.Descricao).HasMaxLength(150);
+            // Garante que a mesma recorrência não gere dois itens no mesmo período
+            // (linhas sem recorrência têm NULL e não colidem entre si).
+            e.HasIndex(x => new { x.ReceitaRecorrenteId, x.PeriodoReferencia }).IsUnique();
+            e.HasOne<ReceitaRecorrente>()
+                .WithMany()
+                .HasForeignKey(x => x.ReceitaRecorrenteId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.CondominioId, x.Status });
             e.HasIndex(x => x.Motivo);
             e.HasOne(x => x.Condominio)
                 .WithMany(c => c.Transferencias)
+                .HasForeignKey(x => x.CondominioId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.ContaOrigem)
+                .WithMany()
+                .HasForeignKey(x => x.ContaOrigemId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ContaDestino)
+                .WithMany()
+                .HasForeignKey(x => x.ContaDestinoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // ---------------------------------------------------------------- RECEITA_RECORRENTE
+        b.Entity<ReceitaRecorrente>(e =>
+        {
+            e.ToTable(
+                "receita_recorrente",
+                t =>
+                {
+                    t.HasCheckConstraint("ck_receita_recorrente_valor", "\"valor\" > 0");
+                    t.HasCheckConstraint(
+                        "ck_receita_recorrente_contas_diferentes",
+                        "\"conta_origem_id\" <> \"conta_destino_id\""
+                    );
+                }
+            );
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).HasMaxLength(150).IsRequired();
+            e.Property(x => x.Valor).HasPrecision(precisaoMoeda, escalaMoeda);
+            e.Property(x => x.Motivo)
+                .HasConversion(SnakeCaseEnumConverter.Create<MotivoTransferencia>())
+                .HasMaxLength(20)
+                .IsRequired();
+            e.HasIndex(x => new { x.CondominioId, x.Ativa });
+            e.HasOne(x => x.Condominio)
+                .WithMany()
                 .HasForeignKey(x => x.CondominioId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.ContaOrigem)

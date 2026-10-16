@@ -340,6 +340,26 @@ COMMENT ON TABLE reserva IS 'RF21, RN23 — origem: lista que a síndica levanta
 -- ----------------------------------------------------------------------------
 -- TRANSFERENCIA / ÁREA DE ACERTO (RF14 — reposição, aporte, destinação de receita)
 -- ----------------------------------------------------------------------------
+-- RF14, RN20, RN22 — receita/transferência mensal recorrente que gera itens na área de acerto
+CREATE TABLE receita_recorrente (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    condominio_id    uuid NOT NULL REFERENCES condominio(id) ON DELETE CASCADE,
+    descricao        varchar(150) NOT NULL,
+    valor            numeric(14,2) NOT NULL CONSTRAINT ck_receita_recorrente_valor CHECK (valor > 0),
+    conta_origem_id  uuid NOT NULL REFERENCES conta_bancaria(id),
+    conta_destino_id uuid NOT NULL REFERENCES conta_bancaria(id),
+    motivo           varchar(20) NOT NULL CHECK (motivo IN ('aporte', 'destinacao_receita')),
+    data_inicio      date NOT NULL,
+    data_fim         date,                           -- nula = sem fim
+    ativa            boolean NOT NULL DEFAULT true,  -- nunca apagada: inativa preserva histórico
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    updated_at       timestamptz,
+    CONSTRAINT ck_receita_recorrente_contas_diferentes CHECK (conta_origem_id <> conta_destino_id),
+    CONSTRAINT ck_receita_recorrente_periodo CHECK (data_fim IS NULL OR data_fim >= data_inicio)
+);
+
+CREATE INDEX ix_receita_recorrente_condominio_ativa ON receita_recorrente(condominio_id, ativa);
+
 CREATE TABLE transferencia (
     id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     condominio_id       uuid NOT NULL REFERENCES condominio(id) ON DELETE CASCADE,
@@ -357,6 +377,9 @@ CREATE TABLE transferencia (
     status              varchar(16) NOT NULL DEFAULT 'pendente'
                             CHECK (status IN ('sem_ajuste', 'pendente', 'ajustado')),  -- RN24
     data_execucao       date,
+    descricao           varchar(150),                                     -- rótulo livre (ex.: itens gerados por recorrência)
+    receita_recorrente_id uuid REFERENCES receita_recorrente(id),         -- recorrência que gerou o item
+    periodo_referencia  date,                                             -- 1º dia da competência atendida
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz,
     CONSTRAINT ck_transferencia_contas_diferentes CHECK (conta_origem_id <> conta_destino_id)
@@ -364,6 +387,9 @@ CREATE TABLE transferencia (
 
 CREATE INDEX ix_transferencia_condominio_status ON transferencia(condominio_id, status);
 CREATE INDEX ix_transferencia_motivo ON transferencia(motivo);
+-- A mesma recorrência não gera dois itens no mesmo período (NULLs não colidem).
+CREATE UNIQUE INDEX ux_transferencia_recorrencia_periodo
+    ON transferencia(receita_recorrente_id, periodo_referencia);
 
 -- Tabela de junção: quais pagamentos compõem um item de transferência
 -- (suporta RN17: uma transferência pode consolidar N pagamentos de reposição).

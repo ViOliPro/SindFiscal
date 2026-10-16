@@ -216,6 +216,8 @@ export interface Transferencia {
   motivo: MotivoTransferencia;
   status: StatusTransferencia;
   dataExecucao: string | null;
+  /** Rótulo do item; preenchido nos itens gerados por recorrência. */
+  descricao: string | null;
 }
 
 export interface AreaDeAcerto {
@@ -482,3 +484,28 @@ export const ETAPA_DESPESA_FUTURA_LABEL: Record<EtapaDespesaFutura, string> = {
   aprovada: "Aprovada",
   contratada: "Contratada",
 };
+
+// ---------------------------------------------------------------- Receitas recorrentes (RF14, RN20, RN22)
+export interface ReceitaRecorrente {
+  id: string;
+  descricao: string;
+  valor: number;
+  contaOrigemId: string;
+  contaOrigemNome: string;
+  contaDestinoId: string;
+  contaDestinoNome: string;
+  motivo: MotivoTransferencia;
+  /** DateOnly → "YYYY-MM-DD" */
+  dataInicio: string;
+  dataFim: string | null;
+  ativa: boolean;
+  /** 1º dia da competência do último item gerado. */
+  ultimoPeriodoGerado: string | null;
+}
+
+export interface GerarRecorrentesPeriodoResultado {
+  geradas: number;
+  jaGeradas: number;
+  itens: Transferencia[];
+}
+
