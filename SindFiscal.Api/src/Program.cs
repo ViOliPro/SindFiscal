@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using SindFiscal.Conversoes;
 using SindFiscal.Data;
 using SindFiscal.Services;
 
@@ -20,6 +21,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 builder.Services.AddScoped<AreaDeAcertoService>();
 builder.Services.AddScoped<FilaExecucaoService>();
 builder.Services.AddScoped<ContaBancariaService>();
+builder.Services.AddScoped<DespesasFuturasService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
 // Alinhado com AuthController e user-secrets: Jwt:Key | Jwt:Issuer | Jwt:Audience
@@ -74,18 +76,23 @@ builder.Services.AddCors(opt =>
 });
 
 builder
-    .Services.AddControllers()
-    .AddJsonOptions(opt =>
+    .Services.AddControllers(opt =>
     {
+        // Enums em query/rota (ex.: ?status=em_fila_execucao) chegam em snake_case
         // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,
         // ResultadoDecisao, TipoLancamento etc.) — sem este converter, o
         // System.Text.Json padrão serializa como número (0, 1, 2...), quebrando
         // o contrato com o front (que espera strings snake_case, ex.: "aprovado").
         // Usa a mesma convenção de nomes do SnakeCaseEnumConverter (EF/coluna).
+        opt.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider());
+    })
+    .AddJsonOptions(opt =>
+    {
         opt.JsonSerializerOptions.Converters.Add(
             new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
         );
     });
+
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();

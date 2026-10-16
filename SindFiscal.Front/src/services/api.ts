@@ -31,6 +31,12 @@ import type {
   TipoRegraAporte,
   Transferencia,
   Usuario,
+  Documento,
+  EntidadeDocumento,
+  Reserva,
+  ListaDespesasFuturas,
+  FiltroDespesasFuturas,
+  ProjecaoFundos,
 } from "@/types";
 
 // ---------------------------------------------------------------- Auth
@@ -558,3 +564,155 @@ export function excluirModeloAcesso(modeloId: string) {
 export function criarModelosPadrao() {
   return apiFetch<ModeloAcesso[]>("/modelos-acesso/padrao", { method: "POST" });
 }
+
+// ---------------------------------------------------------------- Documentos (RF20)
+export function listarDocumentos(
+  condominioId: string,
+  entidadeTipo: EntidadeDocumento,
+  entidadeId: string,
+) {
+  const q = new URLSearchParams({ entidadeTipo, entidadeId });
+  return apiFetch<Documento[]>(
+    `/condominios/${condominioId}/documentos?${q}`,
+  );
+}
+
+export function registrarDocumento(
+  condominioId: string,
+  data: {
+    entidadeTipo: EntidadeDocumento;
+    entidadeId: string;
+    tipoDocumento: string;
+    referenciaTexto: string;
+  },
+) {
+  return apiFetch<Documento>(`/condominios/${condominioId}/documentos`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function atualizarDocumento(
+  condominioId: string,
+  documentoId: string,
+  data: { tipoDocumento: string; referenciaTexto: string },
+) {
+  return apiFetch<Documento>(
+    `/condominios/${condominioId}/documentos/${documentoId}`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+// ---------------------------------------------------------------- Reservas (RF21)
+export function listarReservas(
+  condominioId: string,
+  opts?: { fundoDestinoId?: string; periodoReferencia?: string },
+) {
+  const q = new URLSearchParams();
+  if (opts?.fundoDestinoId) q.set("fundoDestinoId", opts.fundoDestinoId);
+  if (opts?.periodoReferencia) q.set("periodoReferencia", opts.periodoReferencia);
+  const qs = q.toString();
+  return apiFetch<Reserva[]>(
+    `/condominios/${condominioId}/reservas${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function registrarReserva(
+  condominioId: string,
+  data: {
+    fundoDestinoId: string;
+    unidade: string;
+    moradorNome: string;
+    valorDestinadoAoFundo: number;
+    pagoComDesconto?: boolean | null;
+    periodoReferencia: string;
+  },
+) {
+  return apiFetch<Reserva>(`/condominios/${condominioId}/reservas`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function fecharPeriodoReservas(
+  condominioId: string,
+  fundoDestinoId: string,
+  periodoReferencia: string,
+) {
+  return apiFetch<Transferencia>(
+    `/condominios/${condominioId}/reservas/fechar-periodo`,
+    {
+      method: "POST",
+      body: JSON.stringify({ fundoDestinoId, periodoReferencia }),
+    },
+  );
+}
+
+// ---------------------------------------------------------------- Despesas futuras (RF13/RF16)
+export function listarDespesasFuturas(
+  condominioId: string,
+  filtro: FiltroDespesasFuturas = {},
+) {
+  const q = new URLSearchParams();
+  if (filtro.fundoId) q.set("fundoId", filtro.fundoId);
+  if (filtro.semFundo) q.set("semFundo", "true");
+  if (filtro.etapa) q.set("etapa", filtro.etapa);
+  if (filtro.prioridade) q.set("prioridade", filtro.prioridade);
+  if (filtro.de) q.set("de", filtro.de);
+  if (filtro.ate) q.set("ate", filtro.ate);
+  if (filtro.busca) q.set("busca", filtro.busca);
+  const qs = q.toString();
+  return apiFetch<ListaDespesasFuturas>(
+    `/condominios/${condominioId}/despesas-futuras${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function obterProjecaoFundos(condominioId: string, ate?: string) {
+  const qs = ate ? `?ate=${encodeURIComponent(ate)}` : "";
+  return apiFetch<ProjecaoFundos>(
+    `/condominios/${condominioId}/despesas-futuras/projecao${qs}`,
+  );
+}
+
+export function atualizarPlanejamentoCompromisso(
+  condominioId: string,
+  compromissoId: string,
+  data: {
+    prioridade: Prioridade | null;
+    dataPrevista: string | null;
+    fundoPrevistoId: string | null;
+  },
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/compromissos/${compromissoId}/planejamento`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function atualizarPlanejamentoNecessidade(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    prioridade: Prioridade | null;
+    dataPrevista: string | null;
+    fundoPrevistoId: string | null;
+    valorEstimado: number | null;
+  },
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/necessidades/${necessidadeId}/planejamento`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function definirFundoNoPlanejamento(
+  condominioId: string,
+  contaId: string,
+  considerar: boolean,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/fundos/${contaId}/considerar`,
+    { method: "PUT", body: JSON.stringify({ considerar }) },
+  );
+}
+

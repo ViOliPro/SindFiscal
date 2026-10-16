@@ -156,3 +156,22 @@ public enum EntidadeDocumento
     Decisao,
     Fornecedor,
 }
+
+/// <summary>
+/// RF13, RF16 — etapa de uma despesa futura (visão derivada, não persistida):
+/// Planejada = necessidade ainda sem compromisso; Aprovada = compromisso aguardando
+/// execução ou em fila; Contratada = compromisso em execução.
+/// </summary>
+public enum EtapaDespesaFutura
+{
+    Planejada,
+    Aprovada,
+    Contratada,
+}
+
+/// <summary>Origem de um item da visão de despesas futuras.</summary>
+public enum OrigemDespesaFutura
+{
+    Necessidade,
+    Compromisso,
+}

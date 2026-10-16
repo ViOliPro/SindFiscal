@@ -27,7 +27,7 @@ export function AppShell() {
 
   const condominiosQ = useQuery({
     queryKey: ['condominios'],
-    queryFn: listarCondominios,
+    queryFn: () => listarCondominios(),
     retry: 1,
   })
 

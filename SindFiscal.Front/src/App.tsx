@@ -11,6 +11,7 @@ import { CompromissosPage } from '@/pages/CompromissosPage'
 import { NecessidadesPage } from '@/pages/NecessidadesPage'
 import { PagamentosPage } from '@/pages/PagamentosPage'
 import { AcertoPage } from '@/pages/AcertoPage'
+import { DespesasFuturasPage } from '@/pages/DespesasFuturasPage'
 import { useAuthStore } from '@/stores/authStore'
 
 function Placeholder({ title }: { title: string }) {
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="necessidades" element={<NecessidadesPage />} />
           <Route path="compromissos" element={<CompromissosPage />} />
           <Route path="pagamentos" element={<PagamentosPage />} />
+          <Route path="despesas-futuras" element={<DespesasFuturasPage />} />
           <Route path="acerto" element={<AcertoPage />} />
           <Route path="reservas" element={<Placeholder title="Reservas de Área Comum" />} />
           <Route path="documentos" element={<Placeholder title="Documentos" />} />

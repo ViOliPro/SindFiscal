@@ -21,6 +21,12 @@ public class ContaBancaria
 
     public decimal SaldoAtual { get; set; }
 
+    /// <summary>
+    /// Se o saldo deste fundo entra nos totais do planejamento de despesas futuras.
+    /// Fundos de destinação específica (ex.: 13º, trabalho) podem ficar de fora.
+    /// </summary>
+    public bool ConsideradoNoPlanejamento { get; set; } = true;
+
     /// <summary>Saldo acumulado de aporte pendente quando um aporte é adiado (RN21).</summary>
     public decimal AportePendenteAcumulado { get; set; }
 

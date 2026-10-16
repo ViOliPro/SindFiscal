@@ -251,6 +251,11 @@ public class AppDbContext : DbContext
                 .HasConversion(SnakeCaseEnumConverter.Create<SituacaoNecessidade>())
                 .HasMaxLength(20)
                 .IsRequired();
+            e.Property(x => x.ValorEstimado).HasPrecision(precisaoMoeda, escalaMoeda);
+            e.HasOne<ContaBancaria>()
+                .WithMany()
+                .HasForeignKey(x => x.FundoPrevistoId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.CondominioId);
             e.HasIndex(x => x.Situacao);
             e.HasOne(x => x.Condominio)
@@ -320,6 +325,13 @@ public class AppDbContext : DbContext
                 .HasMaxLength(20)
                 .IsRequired();
             e.Ignore(x => x.TotalGastosVinculados); // calculado em runtime, não persistido
+            e.Property(x => x.Prioridade)
+                .HasConversion(SnakeCaseEnumConverter.CreateNullable<Prioridade>())
+                .HasMaxLength(10);
+            e.HasOne<ContaBancaria>()
+                .WithMany()
+                .HasForeignKey(x => x.FundoPrevistoId)
+                .OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => x.CondominioId);
             e.HasIndex(x => x.CompromissoPaiId);
             e.HasIndex(x => new
