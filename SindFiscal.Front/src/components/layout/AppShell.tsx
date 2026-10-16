@@ -11,7 +11,6 @@ const NAV = [
   { to: '/necessidades', label: 'Necessidades / Cotações' },
   { to: '/compromissos', label: 'Decisões / Compromissos' },
   { to: '/pagamentos', label: 'Pagamentos / Fila' },
-  { to: '/despesas-futuras', label: 'Despesas Futuras' },
   { to: '/acerto', label: 'Área de Acerto' },
   { to: '/reservas', label: 'Reservas' },
   { to: '/documentos', label: 'Documentos' },
@@ -28,7 +27,7 @@ export function AppShell() {
 
   const condominiosQ = useQuery({
     queryKey: ['condominios'],
-    queryFn: listarCondominios,
+    queryFn: () => listarCondominios(),
     retry: 1,
   })
 

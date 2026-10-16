@@ -358,6 +358,42 @@ export interface SalvarModeloAcesso {
   itens: ModeloAcessoItem[];
 }
 
+// ---------------------------------------------------------------- Documentos (RF20)
+export type EntidadeDocumento =
+  | "necessidade"
+  | "compromisso_financeiro"
+  | "pagamento"
+  | "decisao"
+  | "fornecedor";
+
+export interface Documento {
+  id: string;
+  entidadeTipo: EntidadeDocumento;
+  entidadeId: string;
+  tipoDocumento: string;
+  referenciaTexto: string;
+}
+
+export const ENTIDADE_DOCUMENTO_LABEL: Record<EntidadeDocumento, string> = {
+  necessidade: "Necessidade",
+  compromisso_financeiro: "Compromisso financeiro",
+  pagamento: "Pagamento",
+  decisao: "Decisão",
+  fornecedor: "Fornecedor",
+};
+
+// ---------------------------------------------------------------- Reservas (RF21)
+export interface Reserva {
+  id: string;
+  fundoDestinoId: string;
+  unidade: string;
+  moradorNome: string;
+  valorDestinadoAoFundo: number;
+  pagoComDesconto: boolean | null;
+  /** DateOnly → "YYYY-MM-DD" */
+  periodoReferencia: string;
+}
+
 // ---------------------------------------------------------------- Despesas futuras (RF13/RF16)
 export type EtapaDespesaFutura = "planejada" | "aprovada" | "contratada";
 export type OrigemDespesaFutura = "necessidade" | "compromisso";
@@ -371,6 +407,7 @@ export interface DespesaFutura {
   statusDoCompromisso: StatusCompromisso | null;
   situacaoDaNecessidade: SituacaoNecessidade | null;
   prioridade: Prioridade | null;
+  /** DateOnly → "YYYY-MM-DD" */
   dataPrevista: string | null;
   fundoId: string | null;
   fundoNome: string | null;
@@ -388,6 +425,17 @@ export interface ListaDespesasFuturas {
   totalProvisionado: number;
   totalAprovado: number;
   totalPlanejado: number;
+}
+
+export interface FiltroDespesasFuturas {
+  fundoId?: string;
+  semFundo?: boolean;
+  etapa?: EtapaDespesaFutura;
+  prioridade?: Prioridade;
+  /** DateOnly → "YYYY-MM-DD" */
+  de?: string;
+  ate?: string;
+  busca?: string;
 }
 
 export interface ProjecaoFundo {
@@ -425,18 +473,9 @@ export interface ProjecaoFundos {
   fundos: ProjecaoFundo[];
 }
 
-export interface FiltroDespesasFuturas {
-  fundoId?: string;
-  semFundo?: boolean;
-  etapa?: EtapaDespesaFutura;
-  prioridade?: Prioridade;
-  de?: string;
-  ate?: string;
-  busca?: string;
-}
-
 export const ETAPA_DESPESA_FUTURA_LABEL: Record<EtapaDespesaFutura, string> = {
   planejada: "Planejada",
   aprovada: "Aprovada",
   contratada: "Contratada",
 };
+
