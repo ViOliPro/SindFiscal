@@ -210,6 +210,7 @@ public class AppDbContext : DbContext
                 .HasMaxLength(12)
                 .IsRequired();
             e.Property(x => x.Valor).HasPrecision(precisaoMoeda, escalaMoeda);
+            e.Property(x => x.MotivoDispensa).HasMaxLength(200);
             e.HasIndex(x => new { x.ContaBancariaId, x.Data });
             e.HasIndex(x => x.Origem);
             e.HasOne(x => x.ContaBancaria)

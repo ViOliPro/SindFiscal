@@ -39,14 +39,14 @@ public class DespesasFuturasService
         _db = db;
     }
 
-    private static readonly StatusCompromisso[] StatusAbertos =
+    public static readonly StatusCompromisso[] StatusAbertos =
     {
         StatusCompromisso.AguardandoExecucao,
         StatusCompromisso.EmFilaExecucao,
         StatusCompromisso.EmExecucao,
     };
 
-    private static readonly SituacaoNecessidade[] SituacoesPlanejaveis =
+    public static readonly SituacaoNecessidade[] SituacoesPlanejaveis =
     {
         SituacaoNecessidade.EmAnalise,
         SituacaoNecessidade.EmOrcamento,

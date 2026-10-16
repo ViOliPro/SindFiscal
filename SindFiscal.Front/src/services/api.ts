@@ -38,6 +38,7 @@ import type {
   FiltroDespesasFuturas,
   GerarRecorrentesPeriodoResultado,
   MotivoTransferencia,
+  Pendencias,
   ProjecaoFundos,
   ReceitaRecorrente,
 } from "@/types";
@@ -765,6 +766,30 @@ export function gerarRecorrentesDoPeriodo(
   return apiFetch<GerarRecorrentesPeriodoResultado>(
     `/condominios/${condominioId}/receitas-recorrentes/gerar-periodo`,
     { method: "POST", body: JSON.stringify({ periodoReferencia }) },
+  );
+}
+
+// ---------------------------------------------------------------- Pendências (RF17)
+export function listarPendencias(condominioId: string, desde?: string) {
+  const q = desde ? `?desde=${encodeURIComponent(desde)}` : "";
+  return apiFetch<Pendencias>(`/condominios/${condominioId}/pendencias${q}`);
+}
+
+export function dispensarConciliacao(
+  condominioId: string,
+  lancamentoId: string,
+  motivo: string,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/pendencias/lancamentos/${lancamentoId}/dispensar`,
+    { method: "POST", body: JSON.stringify({ motivo }) },
+  );
+}
+
+export function reativarConciliacao(condominioId: string, lancamentoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/pendencias/lancamentos/${lancamentoId}/reativar`,
+    { method: "POST" },
   );
 }
 

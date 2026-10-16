@@ -235,6 +235,7 @@ export interface Dashboard {
   valorEmFilaDeExecucao: number;
   itensPendentesNaAreaDeAcerto: number;
   itensEmAnaliseOuOrcamento: number;
+  pendenciasAbertas: number;
 }
 
 export const STATUS_COMPROMISSO_LABEL: Record<StatusCompromisso, string> = {
@@ -507,5 +508,29 @@ export interface GerarRecorrentesPeriodoResultado {
   geradas: number;
   jaGeradas: number;
   itens: Transferencia[];
+}
+
+// ---------------------------------------------------------------- Pendências (RF17)
+export type TipoPendencia =
+  | "lancamento_sem_pagamento"
+  | "compromisso_sem_fundo"
+  | "necessidade_sem_valor";
+
+export interface Pendencia {
+  tipo: TipoPendencia;
+  referenciaId: string;
+  descricao: string;
+  valor: number | null;
+  /** DateOnly → "YYYY-MM-DD" */
+  data: string | null;
+  detalhe: string | null;
+}
+
+export interface Pendencias {
+  total: number;
+  lancamentosSemPagamento: number;
+  compromissosSemFundo: number;
+  necessidadesSemValor: number;
+  itens: Pendencia[];
 }
 

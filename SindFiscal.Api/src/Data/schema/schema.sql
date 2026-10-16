@@ -174,6 +174,8 @@ CREATE TABLE lancamento (
                             CHECK (fonte IN ('manual', 'integracao')),      -- RF15
     descricao           text,
     estorno_de_id       uuid REFERENCES lancamento(id),                    -- RN32
+    conciliacao_dispensada boolean NOT NULL DEFAULT false,                 -- saída que não precisa de pagamento vinculado (ex.: despesa ordinária da administradora, RN25)
+    motivo_dispensa     varchar(200),
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz
 );

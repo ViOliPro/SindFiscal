@@ -12,6 +12,7 @@ const NAV = [
   { to: '/compromissos', label: 'Decisões / Compromissos' },
   { to: '/pagamentos', label: 'Pagamentos / Fila' },
   { to: '/despesas-futuras', label: 'Despesas Futuras' },
+  { to: '/pendencias', label: 'Pendências' },
   { to: '/acerto', label: 'Área de Acerto' },
   { to: '/receitas-recorrentes', label: 'Receitas Recorrentes' },
   { to: '/reservas', label: 'Reservas' },

@@ -1,5 +1,6 @@
 import { useCondominioStore } from '@/stores/condominioStore'
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { obterDashboard } from '@/services/api'
 
 function formatMoney(v: number) {
@@ -99,6 +100,21 @@ export function DashboardPage() {
             {d ? d.itensEmAnaliseOuOrcamento : '—'}
           </p>
         </div>
+        <Link to="/pendencias" className="card" style={{ color: 'inherit', textDecoration: 'none' }}>
+          <p className="muted" style={{ fontSize: '0.8rem' }}>
+            Pendências
+          </p>
+          <p
+            style={{
+              fontSize: '1.4rem',
+              fontWeight: 700,
+              marginTop: '0.35rem',
+              color: d && d.pendenciasAbertas > 0 ? 'var(--color-warning)' : undefined,
+            }}
+          >
+            {d ? d.pendenciasAbertas : '—'}
+          </p>
+        </Link>
         <div className="card">
           <p className="muted" style={{ fontSize: '0.8rem' }}>
             Arrecadação extra

@@ -12,6 +12,7 @@ import { NecessidadesPage } from '@/pages/NecessidadesPage'
 import { PagamentosPage } from '@/pages/PagamentosPage'
 import { AcertoPage } from '@/pages/AcertoPage'
 import { DespesasFuturasPage } from '@/pages/DespesasFuturasPage'
+import { PendenciasPage } from '@/pages/PendenciasPage'
 import { ReceitasRecorrentesPage } from '@/pages/ReceitasRecorrentesPage'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="compromissos" element={<CompromissosPage />} />
           <Route path="pagamentos" element={<PagamentosPage />} />
           <Route path="despesas-futuras" element={<DespesasFuturasPage />} />
+          <Route path="pendencias" element={<PendenciasPage />} />
           <Route path="acerto" element={<AcertoPage />} />
           <Route path="receitas-recorrentes" element={<ReceitasRecorrentesPage />} />
           <Route path="reservas" element={<Placeholder title="Reservas de Área Comum" />} />

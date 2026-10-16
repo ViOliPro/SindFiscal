@@ -175,3 +175,20 @@ public enum OrigemDespesaFutura
     Necessidade,
     Compromisso,
 }
+
+/// <summary>
+/// RF17 — tipos de pendência que exigem ação do síndico para a gestão financeira
+/// ficar consistente (despesa real sem fundo/compromisso definido, etc.).
+/// </summary>
+public enum TipoPendencia
+{
+    /// <summary>Saída real que não foi vinculada a nenhum pagamento (sem fundo responsável).</summary>
+    LancamentoSemPagamento,
+
+    /// <summary>Compromisso aberto, sem pagamento, sem fundo previsto.</summary>
+    CompromissoSemFundo,
+
+    /// <summary>Necessidade planejada sem valor estimado e sem cotação.</summary>
+    NecessidadeSemValor,
+}
+
