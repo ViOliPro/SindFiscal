@@ -4,6 +4,8 @@ import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { AcessosPage } from '@/pages/AcessosPage'
+import { AcessoUsuarioPage } from '@/pages/AcessoUsuarioPage'
 import { ContasPage } from '@/pages/ContasPage'
 import { CompromissosPage } from '@/pages/CompromissosPage'
 import { NecessidadesPage } from '@/pages/NecessidadesPage'
@@ -50,6 +52,8 @@ export default function App() {
           <Route path="acerto" element={<AcertoPage />} />
           <Route path="reservas" element={<Placeholder title="Reservas de Área Comum" />} />
           <Route path="documentos" element={<Placeholder title="Documentos" />} />
+          <Route path="acessos" element={<AcessosPage />} />
+          <Route path="acessos/:usuarioId" element={<AcessoUsuarioPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

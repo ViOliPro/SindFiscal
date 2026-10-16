@@ -5,42 +5,36 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using SindFiscal.Conversoes;
 using SindFiscal.Data;
 using SindFiscal.Services;
 
-// Inicializa o builder e carrega as variáveis de ambiente IMEDIATAMENTE
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddEnvironmentVariables();
-
 // ---------------------------------------------------------------- DbContext (PostgreSQL)
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<AuditoriaSaveChangesInterceptor>();
-
-var connectionString =
-    builder.Configuration["ConnectionStrings:DefaultConnection"]
-    ?? throw new InvalidOperationException(
-        "Configuração ConnectionStrings:DefaultConnection ausente (appsettings.json ou variável de ambiente)."
-    );
-
-builder.Services.AddDbContext<AppDbContext>(
-    (sp, opt) =>
-        opt.UseNpgsql(connectionString)
-            .UseSnakeCaseNamingConvention()
-            .AddInterceptors(sp.GetRequiredService<AuditoriaSaveChangesInterceptor>())
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+        .UseSnakeCaseNamingConvention()
 ); // pacote EFCore.NamingConventions — ver README.md
 
 // ---------------------------------------------------------------- Serviços de domínio
 builder.Services.AddScoped<AreaDeAcertoService>();
 builder.Services.AddScoped<FilaExecucaoService>();
+builder.Services.AddScoped<ContaBancariaService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
+// Alinhado com AuthController e user-secrets: Jwt:Key | Jwt:Issuer | Jwt:Audience
 var chaveJwt =
-    builder.Configuration["Jwt:key"]
+    builder.Configuration["Jwt:Key"]
+    ?? builder.Configuration["Jwt:key"]
     ?? throw new InvalidOperationException(
-        "Configuração Jwt:key ausente (appsettings.json ou variável de ambiente)."
+        "Configuração Jwt:Key ausente (user-secrets, appsettings ou env)."
     );
+var jwtIssuer =
+    builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("Configuração Jwt:Issuer ausente.");
+var jwtAudience =
+    builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("Configuração Jwt:Audience ausente.");
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -52,8 +46,8 @@ builder
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chaveJwt)),
         };
     });
@@ -69,18 +63,18 @@ builder.Services.AddAuthorization(opt =>
 // ---------------------------------------------------------------- CORS (front Vite)
 builder.Services.AddCors(opt =>
 {
-    opt.AddPolicy("Front", policy => policy.WithOrigins("*").AllowAnyHeader().AllowAnyMethod());
+    opt.AddPolicy(
+        "Front",
+        policy =>
+            policy
+                .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+    );
 });
 
 builder
-    .Services.AddControllers(options =>
-    {
-        // [FromQuery]/[FromRoute] enums (ex.: ?situacao=em_analise) usam a
-        // mesma convenção snake_case do corpo JSON abaixo — ver
-        // SnakeCaseEnumModelBinder para o porquê disso não funcionar de
-        // graça com o binder padrão do ASP.NET Core.
-        options.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider());
-    })
+    .Services.AddControllers()
     .AddJsonOptions(opt =>
     {
         // Todos os DTOs de resposta expõem enums de negócio (StatusCompromisso,

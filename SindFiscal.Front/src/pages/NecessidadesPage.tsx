@@ -42,6 +42,9 @@ const necSchema = z.object({
 const fornSchema = z.object({
   nome: z.string().min(2),
   categoria: z.string().min(2),
+  telefone: z.string().optional(),
+  email: z.string().optional(),
+  observacoes: z.string().optional(),
 })
 const cotSchema = z.object({
   fornecedorId: z.string().min(1),
@@ -101,7 +104,14 @@ export function NecessidadesPage() {
     },
   })
   const criarFornM = useMutation({
-    mutationFn: (d: FornForm) => criarFornecedor(d.nome, d.categoria),
+    mutationFn: (d: FornForm) =>
+      criarFornecedor({
+        nome: d.nome,
+        categoria: d.categoria,
+        telefone: d.telefone || undefined,
+        email: d.email || undefined,
+        observacoes: d.observacoes || undefined,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fornecedores'] })
       fornForm.reset()
@@ -124,6 +134,7 @@ export function NecessidadesPage() {
       cotForm.reset()
     },
   })
+  const [msgAprovacao, setMsgAprovacao] = useState<string | null>(null)
   const decisaoM = useMutation({
     mutationFn: (cotacaoId: string) =>
       registrarDecisao(condominioId!, selecionada!, {
@@ -135,6 +146,8 @@ export function NecessidadesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['necessidades', condominioId] })
       qc.invalidateQueries({ queryKey: ['compromissos', condominioId] })
+      qc.invalidateQueries({ queryKey: ['cotacoes', condominioId, selecionada] })
+      setMsgAprovacao('Cotação aprovada. Compromisso financeiro gerado automaticamente.')
     },
   })
   const avaliarM = useMutation({
@@ -235,9 +248,35 @@ export function NecessidadesPage() {
             </ul>
           </div>
 
-          {selecionada && (
+          {selecionada && (() => {
+            const necSel = necQ.data?.find((n) => n.id === selecionada)
+            const jaAprovada = necSel?.situacao === 'aprovado'
+            return (
             <div className="card" style={{ marginTop: '1rem' }}>
-              <h3 style={{ marginBottom: '0.75rem' }}>Cotações</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0 }}>Cotações</h3>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.85rem' }}
+                  onClick={() => {
+                    setSelecionada(null)
+                    setMsgAprovacao(null)
+                  }}
+                >
+                  Fechar
+                </button>
+              </div>
+              {jaAprovada && (
+                <p className="muted" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+                  Necessidade já aprovada. Compromisso gerado em Decisões/Compromissos.
+                </p>
+              )}
+              {msgAprovacao && (
+                <p style={{ marginBottom: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                  {msgAprovacao}
+                </p>
+              )}
               {compQ.data && compQ.data.cotacoes.length > 0 && (
                 <p className="muted" style={{ marginBottom: '0.75rem' }}>
                   Menor: {formatMoney(compQ.data.menorValor)} · Maior:{' '}
@@ -262,17 +301,27 @@ export function NecessidadesPage() {
                       {c.fornecedorNome} — {formatMoney(c.valor)}
                       {c.prazoExecucaoDias ? ` · ${c.prazoExecucaoDias}d` : ''}
                     </span>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={decisaoM.isPending}
-                      onClick={() => decisaoM.mutate(c.id)}
-                    >
-                      Aprovar cotação
-                    </button>
+                    {jaAprovada ? (
+                      <span className="badge">aprovada</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={decisaoM.isPending}
+                        onClick={() => {
+                          if (decisaoM.isPending) return
+                          decisaoM.mutate(c.id)
+                        }}
+                      >
+                        {decisaoM.isPending && decisaoM.variables === c.id
+                          ? 'Aprovando…'
+                          : 'Aprovar cotação'}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
+              {!jaAprovada && (
               <form
                 onSubmit={cotForm.handleSubmit((d) => cotM.mutate(d))}
                 style={{ display: 'grid', gap: '0.5rem', maxWidth: 480 }}
@@ -311,8 +360,10 @@ export function NecessidadesPage() {
                 <ErroApi error={cotM.error} />
                 <ErroApi error={decisaoM.error} />
               </form>
+              )}
             </div>
-          )}
+            )
+          })()}
         </>
       )}
 
@@ -324,8 +375,11 @@ export function NecessidadesPage() {
               onSubmit={fornForm.handleSubmit((d) => criarFornM.mutate(d))}
               style={{ display: 'grid', gap: '0.5rem', maxWidth: 400 }}
             >
-              <input className="input" placeholder="Nome" {...fornForm.register('nome')} />
-              <input className="input" placeholder="Categoria" {...fornForm.register('categoria')} />
+              <input className="input" placeholder="Nome *" {...fornForm.register('nome')} />
+              <input className="input" placeholder="Categoria *" {...fornForm.register('categoria')} />
+              <input className="input" placeholder="Telefone (opcional)" {...fornForm.register('telefone')} />
+              <input className="input" placeholder="E-mail (opcional)" {...fornForm.register('email')} />
+              <textarea className="input" placeholder="Observações (opcional)" {...fornForm.register('observacoes')} />
               <button type="submit" className="btn btn-primary" disabled={criarFornM.isPending}>
                 Criar
               </button>

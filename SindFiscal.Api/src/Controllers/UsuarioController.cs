@@ -16,6 +16,11 @@ public class UsuarioController : ControllerBase
 
     public UsuarioController(AppDbContext db) => _db = db;
 
+    /// <summary>
+    /// Lista o síndico + colaboradores/conselheiros com permissão em algum condomínio
+    /// do síndico + usuários não-síndico sem nenhuma permissão (recém-criados, disponíveis
+    /// para concessão). Sem isso, colaborador novo nunca aparece no select de permissões.
+    /// </summary>
     [HttpGet("usuarios")]
     public async Task<ActionResult<IReadOnlyList<UsuarioResponse>>> Listar(CancellationToken ct)
     {
@@ -27,14 +32,26 @@ public class UsuarioController : ControllerBase
             .Select(c => c.Id)
             .ToListAsync(ct);
 
-        var colaboradorIds = await _db.Permissoes
+        var comPermissaoIds = await _db.Permissoes
             .Where(p => condominioIds.Contains(p.CondominioId))
             .Select(p => p.UsuarioId)
             .Distinct()
             .ToListAsync(ct);
 
+        // Recém-criados: não-síndico ativos sem nenhuma linha em permissao
+        var orfaosIds = await _db.Usuarios
+            .Where(u => u.Ativo
+                        && u.Papel != PapelUsuario.Sindico
+                        && !_db.Permissoes.Any(p => p.UsuarioId == u.Id))
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+
+        var ids = new HashSet<Guid> { sindicoId.Value };
+        foreach (var id in comPermissaoIds) ids.Add(id);
+        foreach (var id in orfaosIds) ids.Add(id);
+
         var usuarios = await _db.Usuarios
-            .Where(u => u.Id == sindicoId || colaboradorIds.Contains(u.Id))
+            .Where(u => ids.Contains(u.Id))
             .OrderBy(u => u.Nome)
             .ToListAsync(ct);
 
@@ -49,14 +66,20 @@ public class UsuarioController : ControllerBase
         var sindicoId = await GarantirSindico(ct);
         if (sindicoId is null) return Forbid();
 
-        if (await _db.Usuarios.AnyAsync(u => u.Email == request.Email, ct))
+        if (string.IsNullOrWhiteSpace(request.Nome)
+            || string.IsNullOrWhiteSpace(request.Email)
+            || string.IsNullOrWhiteSpace(request.SenhaProvisoria))
+            return BadRequest(new { message = "Nome, e-mail e senha provisória são obrigatórios." });
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (await _db.Usuarios.AnyAsync(u => u.Email == email, ct))
             return Conflict(new { message = "E-mail já cadastrado." });
 
         var usuario = new Usuario
         {
             Id = Guid.NewGuid(),
             Nome = request.Nome.Trim(),
-            Email = request.Email.Trim().ToLowerInvariant(),
+            Email = email,
             Papel = PapelUsuario.Colaborador,
             Ativo = true,
             SenhaHash = AuthController.HashSenha(request.SenhaProvisoria),
@@ -108,6 +131,10 @@ public class UsuarioController : ControllerBase
         var usuario = await _db.Usuarios.FindAsync(new object[] { request.UsuarioId }, ct);
         if (usuario is null || usuario.Papel == PapelUsuario.Sindico)
             return BadRequest(new { message = "Usuário inválido para permissão." });
+
+        var erroRegra = Authorization.RegrasAcesso.Validar(request.Modulo, request.Nivel, usuario.Papel);
+        if (erroRegra is not null)
+            return BadRequest(new { message = erroRegra });
 
         var existente = await _db.Permissoes.FirstOrDefaultAsync(
             p => p.UsuarioId == request.UsuarioId

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import {
   atualizarRegraAporte,
   criarConta,
+  excluirConta,
   listarContas,
   listarLancamentos,
   registrarLancamento,
@@ -60,6 +61,14 @@ export function ContasPage() {
 
   const criarContaM = useMutation({
     mutationFn: (d: ContaForm) => criarConta(condominioId!, d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contas', condominioId] })
+      contaForm.reset({ finalidade: 'ordinario', ehContaOperacional: false, nome: '' })
+    },
+  })
+
+  const excluirContaM = useMutation({
+    mutationFn: (contaId: string) => excluirConta(condominioId!, contaId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contas', condominioId] }),
   })
 
@@ -75,6 +84,13 @@ export function ContasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['lancamentos', condominioId] })
       qc.invalidateQueries({ queryKey: ['contas', condominioId] })
+      lancForm.reset({
+        data: new Date().toISOString().slice(0, 10),
+        tipo: 'saida',
+        contaBancariaId: '',
+        valor: undefined as unknown as number,
+        descricao: '',
+      })
     },
   })
 
@@ -138,10 +154,7 @@ export function ContasPage() {
       {painel === 'contas' && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <form
-            onSubmit={contaForm.handleSubmit((d) => {
-              criarContaM.mutate(d)
-              contaForm.reset({ finalidade: 'ordinario', ehContaOperacional: false })
-            })}
+            onSubmit={contaForm.handleSubmit((d) => criarContaM.mutate(d))}
             style={{
               display: 'grid',
               gap: '0.75rem',
@@ -170,6 +183,11 @@ export function ContasPage() {
             <button type="submit" className="btn btn-primary" disabled={criarContaM.isPending}>
               Criar conta
             </button>
+            {criarContaM.isError && (
+              <p className="muted" style={{ color: 'var(--color-danger)', gridColumn: '1 / -1' }}>
+                {(criarContaM.error as Error)?.message ?? 'Erro ao criar conta'}
+              </p>
+            )}
           </form>
 
           {contasQ.isLoading && <p className="muted">Carregando…</p>}
@@ -186,7 +204,7 @@ export function ContasPage() {
                     : '1px solid var(--color-border)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', gap: '0.5rem' }}>
                   <strong>{c.nome}</strong>
                   {c.ehContaOperacional && <span className="badge">operacional</span>}
                 </div>
@@ -201,6 +219,24 @@ export function ContasPage() {
                     Aporte pendente: {formatMoney(c.aportePendenteAcumulado)}
                   </p>
                 )}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}
+                  disabled={excluirContaM.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Excluir a conta "${c.nome}"?`)) {
+                      excluirContaM.mutate(c.id)
+                    }
+                  }}
+                >
+                  Excluir
+                </button>
+                {excluirContaM.isError && excluirContaM.variables === c.id && (
+                  <p className="muted" style={{ color: 'var(--color-danger)', fontSize: '0.75rem' }}>
+                    {(excluirContaM.error as Error)?.message ?? 'Erro ao excluir'}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -210,14 +246,7 @@ export function ContasPage() {
       {painel === 'lancamentos' && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <form
-            onSubmit={lancForm.handleSubmit((d) => {
-              regLancM.mutate(d)
-              lancForm.reset({
-                data: new Date().toISOString().slice(0, 10),
-                tipo: 'saida',
-                contaBancariaId: d.contaBancariaId,
-              })
-            })}
+            onSubmit={lancForm.handleSubmit((d) => regLancM.mutate(d))}
             style={{
               display: 'grid',
               gap: '0.75rem',

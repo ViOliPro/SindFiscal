@@ -18,4 +18,24 @@ public static class Modulos
     public const string ReservasAreaComum = "reservas_area_comum";                        // RF21
     public const string Auditoria = "auditoria";                                          // RF19 — sempre leitura
     public const string CondominiosUsuariosIntegracoes = "condominios_usuarios_integracoes"; // RF01, RF02, RF03, RF15 — exclusivo síndico
+
+    /// <summary>
+    /// Módulos que podem ser concedidos a colaboradores (todos, exceto o exclusivo do
+    /// síndico). A ordem é a ordem das colunas da matriz de acessos.
+    /// </summary>
+    public static readonly string[] Delegaveis =
+    {
+        ContasLancamentos,
+        NecessidadesCotacoesFornecedores,
+        DecisoesCompromissos,
+        PagamentosFilaExecucao,
+        TransferenciasAreaAcerto,
+        SimulacaoCaixaFuturo,
+        DashboardRelatorios,
+        Documentos,
+        ReservasAreaComum,
+        Auditoria,
+    };
+
+    public static bool EhDelegavel(string modulo) => Delegaveis.Contains(modulo);
 }

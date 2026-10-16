@@ -6,17 +6,34 @@ namespace SindFiscal.Conversoes;
 /// <summary>
 /// Converte um enum C# (ex.: <c>FundoTrabalho</c>) para o texto usado nas colunas
 /// varchar + CHECK constraint do schema.sql (ex.: <c>fundo_trabalho</c>) e vice-versa.
-/// Usado no AppDbContext para todos os campos "enum fechado de negócio" (ver
-/// comentário de convenções no topo de database/schema.sql).
+/// Usado no AppDbContext para todos os campos "enum fechado de negócio".
 /// </summary>
 public static class SnakeCaseEnumConverter
 {
+    /// <summary>Converter para enum NÃO-nullable.</summary>
     public static ValueConverter<TEnum, string> Create<TEnum>()
         where TEnum : struct, Enum
     {
         return new ValueConverter<TEnum, string>(
             paraBanco => ToSnakeCase(paraBanco.ToString()),
             doBanco => (TEnum)Enum.Parse(typeof(TEnum), ToPascalCase(doBanco), ignoreCase: true)
+        );
+    }
+
+    /// <summary>
+    /// Converter para enum NULLABLE (ex.: TipoRegraAporte?, Prioridade?).
+    /// Sem este overload, SaveChanges com valor null estoura 500.
+    /// </summary>
+    public static ValueConverter<TEnum?, string?> CreateNullable<TEnum>()
+        where TEnum : struct, Enum
+    {
+        return new ValueConverter<TEnum?, string?>(
+            paraBanco => paraBanco.HasValue
+                ? ToSnakeCase(paraBanco.Value.ToString())
+                : null,
+            doBanco => string.IsNullOrEmpty(doBanco)
+                ? null
+                : (TEnum?)Enum.Parse(typeof(TEnum), ToPascalCase(doBanco), ignoreCase: true)
         );
     }
 

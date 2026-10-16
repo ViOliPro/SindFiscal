@@ -281,3 +281,164 @@ textarea {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------- Gestão de acessos (RF03) */
+.acessos-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.acessos-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+  color: var(--color-text);
+}
+
+.acessos-stat strong {
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+
+button.acessos-stat {
+  cursor: pointer;
+}
+
+.acessos-stat[data-alerta='true'] {
+  border-color: var(--color-warning);
+}
+
+.acessos-stat[data-alerta='true'] strong {
+  color: var(--color-warning);
+}
+
+.acessos-item {
+  padding: 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.acessos-item[data-alerta='true'] {
+  border-color: var(--color-warning);
+}
+
+.acessos-badge-alerta {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+
+.acessos-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.acessos-lista-check {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.4rem 1rem;
+}
+
+.acessos-tabela-wrap {
+  overflow-x: auto;
+}
+
+.acessos-tabela {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.acessos-tabela th,
+.acessos-tabela td {
+  padding: 0.4rem 0.35rem;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.acessos-tabela th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.acessos-tabela th:first-child,
+.acessos-tabela td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 190px;
+  background: var(--color-surface);
+}
+
+.acesso-cell {
+  min-width: 62px;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.acesso-cell[data-nivel='visualizar'] {
+  border-style: solid;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.acesso-cell[data-nivel='editar'] {
+  border-style: solid;
+  border-color: var(--color-success);
+  color: var(--color-success);
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.acesso-cell[data-alterada='true'] {
+  box-shadow: 0 0 0 2px var(--color-warning);
+}
+
+.acesso-perfil {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.acesso-perfil[data-tipo='modelo'] {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.acesso-perfil[data-tipo='sem_acesso'] {
+  color: var(--color-warning);
+}
+
+.acessos-barra-salvar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius);
+}
