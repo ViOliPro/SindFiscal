@@ -357,3 +357,86 @@ export interface SalvarModeloAcesso {
   descricao?: string | null;
   itens: ModeloAcessoItem[];
 }
+
+// ---------------------------------------------------------------- Despesas futuras (RF13/RF16)
+export type EtapaDespesaFutura = "planejada" | "aprovada" | "contratada";
+export type OrigemDespesaFutura = "necessidade" | "compromisso";
+
+export interface DespesaFutura {
+  origem: OrigemDespesaFutura;
+  id: string;
+  descricao: string;
+  categoria: string;
+  etapa: EtapaDespesaFutura;
+  statusDoCompromisso: StatusCompromisso | null;
+  situacaoDaNecessidade: SituacaoNecessidade | null;
+  prioridade: Prioridade | null;
+  dataPrevista: string | null;
+  fundoId: string | null;
+  fundoNome: string | null;
+  valor: number;
+  valorProvisionado: number;
+  semValor: boolean;
+  quantidadeCotacoes: number | null;
+  prioridadeFila: number | null;
+  atrasada: boolean;
+}
+
+export interface ListaDespesasFuturas {
+  itens: DespesaFutura[];
+  quantidade: number;
+  totalProvisionado: number;
+  totalAprovado: number;
+  totalPlanejado: number;
+}
+
+export interface ProjecaoFundo {
+  fundoId: string;
+  nome: string;
+  finalidade: FinalidadeConta;
+  ehContaOperacional: boolean;
+  consideradoNoPlanejamento: boolean;
+  saldoAtual: number;
+  provisionadoAprovado: number;
+  provisionadoPlanejado: number;
+  provisionado: number;
+  saldoProjetadoAprovados: number;
+  saldoProjetado: number;
+  emDeficit: boolean;
+  deficitProjetado: number;
+  quantidadeItens: number;
+}
+
+export interface ProjecaoFundos {
+  ateData: string | null;
+  saldoDisponivelAtual: number;
+  totalProvisionado: number;
+  compromissosAprovadosPendentes: number;
+  previsoesFuturas: number;
+  saldoAposAprovados: number;
+  saldoAposTudo: number;
+  necessidadeAdicionalAgregada: number;
+  necessidadeAdicionalPorFundo: number;
+  fundosEmDeficit: number;
+  despesasAbertas: number;
+  provisionadoSemFundo: number;
+  quantidadeSemFundo: number;
+  provisionadoForaDoPlanejamento: number;
+  fundos: ProjecaoFundo[];
+}
+
+export interface FiltroDespesasFuturas {
+  fundoId?: string;
+  semFundo?: boolean;
+  etapa?: EtapaDespesaFutura;
+  prioridade?: Prioridade;
+  de?: string;
+  ate?: string;
+  busca?: string;
+}
+
+export const ETAPA_DESPESA_FUTURA_LABEL: Record<EtapaDespesaFutura, string> = {
+  planejada: "Planejada",
+  aprovada: "Aprovada",
+  contratada: "Contratada",
+};

@@ -24,6 +24,18 @@ public class CompromissoFinanceiro
     /// <summary>Posição manual na fila de execução (RF13). Sem critério automático (RN11).</summary>
     public int? PrioridadeFila { get; set; }
 
+    /// <summary>
+    /// Rótulo de prioridade (alta/média/baixa) apenas informativo. NÃO ordena a fila:
+    /// a ordem de execução continua 100% manual (RN11).
+    /// </summary>
+    public Prioridade? Prioridade { get; set; }
+
+    /// <summary>Planejamento — data prevista de execução/pagamento (opcional).</summary>
+    public DateOnly? DataPrevista { get; set; }
+
+    /// <summary>Planejamento — fundo que deve custear o compromisso (opcional).</summary>
+    public Guid? FundoPrevistoId { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 

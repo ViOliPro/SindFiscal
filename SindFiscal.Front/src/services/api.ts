@@ -14,7 +14,9 @@ import type {
   Decisao,
   FinalidadeConta,
   Fornecedor,
+  FiltroDespesasFuturas,
   Lancamento,
+  ListaDespesasFuturas,
   LoginResponse,
   ModeloAcesso,
   Necessidade,
@@ -22,6 +24,7 @@ import type {
   Pagamento,
   Permissao,
   Prioridade,
+  ProjecaoFundos,
   SalvarModeloAcesso,
   ResultadoDecisao,
   SituacaoNecessidade,
@@ -557,4 +560,72 @@ export function excluirModeloAcesso(modeloId: string) {
 /** Cria Consulta / Operacional / Gestor (os que ainda não existirem). */
 export function criarModelosPadrao() {
   return apiFetch<ModeloAcesso[]>("/modelos-acesso/padrao", { method: "POST" });
+}
+
+// ---------------------------------------------------------------- Despesas futuras (RF13/RF16)
+export function listarDespesasFuturas(
+  condominioId: string,
+  filtro: FiltroDespesasFuturas = {},
+) {
+  const qs = new URLSearchParams();
+  if (filtro.fundoId) qs.set("fundoId", filtro.fundoId);
+  if (filtro.semFundo) qs.set("semFundo", "true");
+  if (filtro.etapa) qs.set("etapa", filtro.etapa);
+  if (filtro.prioridade) qs.set("prioridade", filtro.prioridade);
+  if (filtro.de) qs.set("de", filtro.de);
+  if (filtro.ate) qs.set("ate", filtro.ate);
+  if (filtro.busca) qs.set("busca", filtro.busca);
+  const q = qs.toString();
+  return apiFetch<ListaDespesasFuturas>(
+    `/condominios/${condominioId}/despesas-futuras${q ? `?${q}` : ""}`,
+  );
+}
+
+export function obterProjecaoFundos(condominioId: string, ate?: string) {
+  const q = ate ? `?ate=${ate}` : "";
+  return apiFetch<ProjecaoFundos>(
+    `/condominios/${condominioId}/despesas-futuras/projecao${q}`,
+  );
+}
+
+export function atualizarPlanejamentoCompromisso(
+  condominioId: string,
+  compromissoId: string,
+  data: {
+    prioridade: Prioridade | null;
+    dataPrevista: string | null;
+    fundoPrevistoId: string | null;
+  },
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/compromissos/${compromissoId}/planejamento`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function atualizarPlanejamentoNecessidade(
+  condominioId: string,
+  necessidadeId: string,
+  data: {
+    prioridade: Prioridade | null;
+    dataPrevista: string | null;
+    fundoPrevistoId: string | null;
+    valorEstimado: number | null;
+  },
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/necessidades/${necessidadeId}/planejamento`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function definirFundoNoPlanejamento(
+  condominioId: string,
+  contaId: string,
+  considerar: boolean,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/despesas-futuras/fundos/${contaId}/considerar`,
+    { method: "PUT", body: JSON.stringify({ considerar }) },
+  );
 }

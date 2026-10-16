@@ -442,3 +442,74 @@ button.acessos-stat {
   border: 1px solid var(--color-warning);
   border-radius: var(--radius);
 }
+
+/* ---- Despesas futuras ---- */
+.df-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.df-stat small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+.df-stat strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.15rem;
+}
+.df-neg {
+  color: var(--color-danger);
+}
+.df-fundo-deficit {
+  border-color: var(--color-danger);
+}
+.df-alerta {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-warning);
+  margin-bottom: 1rem;
+}
+.df-alerta-erro {
+  border-color: var(--color-danger);
+}
+.df-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+.df-filtros label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+.df-tabela-wrap {
+  overflow-x: auto;
+}
+.df-tabela {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.df-tabela th,
+.df-tabela td {
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.df-tabela th {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.df-num {
+  text-align: right !important;
+  white-space: nowrap;
+}

@@ -142,6 +142,7 @@ CREATE TABLE conta_bancaria (
     teto_maximo                 numeric(14,2),      -- opcional (RN20)
     saldo_atual                 numeric(14,2) NOT NULL DEFAULT 0,
     aporte_pendente_acumulado   numeric(14,2) NOT NULL DEFAULT 0, -- RN21
+    considerado_no_planejamento boolean NOT NULL DEFAULT true,    -- entra nos totais de despesas futuras
     created_at                  timestamptz NOT NULL DEFAULT now(),
     updated_at                  timestamptz,
     CONSTRAINT ck_conta_regra_aporte_completa
@@ -212,6 +213,9 @@ CREATE TABLE necessidade (
         -- ex.: manutencao, obra, aquisicao, servicos, seguranca, administrativo, outros
     prioridade      varchar(10) CHECK (prioridade IN ('alta', 'media', 'baixa')),
     escopo_texto    text,                          -- RN06: escopo comum p/ comparação justa de cotações
+    data_prevista     date,                        -- planejamento: data prevista de execução
+    fundo_previsto_id uuid REFERENCES conta_bancaria(id), -- planejamento: fundo que custeará
+    valor_estimado    numeric(14,2) CHECK (valor_estimado IS NULL OR valor_estimado >= 0), -- estimativa sem cotação
     situacao        varchar(20) NOT NULL DEFAULT 'em_analise'
                         CHECK (situacao IN ('em_analise', 'em_orcamento', 'aprovado',
                                              'reprovado', 'adiado', 'executado')),
@@ -277,6 +281,9 @@ CREATE TABLE compromisso_financeiro (
                                 CHECK (status IN ('aguardando_execucao', 'em_fila_execucao',
                                                    'em_execucao', 'concluido', 'cancelado')),
     prioridade_fila         integer,        -- posição manual na fila (RF13, RN11) — sem critério automático
+    prioridade              varchar(10) CHECK (prioridade IN ('alta', 'media', 'baixa')), -- rótulo informativo; não ordena a fila
+    data_prevista           date,           -- planejamento: data prevista de execução/pagamento
+    fundo_previsto_id       uuid REFERENCES conta_bancaria(id), -- planejamento: fundo que custeará
     created_at              timestamptz NOT NULL DEFAULT now(),
     updated_at              timestamptz
 );
