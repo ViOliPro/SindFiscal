@@ -1,7 +1,6 @@
 import { useAuthStore } from "@/stores/authStore";
 
 const BASE = import.meta.env.VITE_API_URL ?? "/api";
-console.log(`API base URL: ${BASE}`);
 export class ApiError extends Error {
   status: number;
 
@@ -36,7 +35,7 @@ export async function apiFetch<T>(
   } catch {
     throw new ApiError(0, "Falha de rede — API indisponível.");
   }
-  console.log(res);
+
   if (!res.ok) {
     let msg = res.statusText;
     try {

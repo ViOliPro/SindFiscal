@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   avaliarFornecedor,
   comparativoCotacoes,
   criarFornecedor,
   criarNecessidade,
   listarCotacoes,
+  listarDecisoes,
   listarFornecedores,
   listarNecessidades,
   registrarCotacao,
@@ -30,7 +32,11 @@ function ErroApi({ error }: { error: unknown }) {
   if (!error) return null
   const msg =
     error instanceof Error ? error.message : typeof error === 'string' ? error : 'Erro'
-  return <p className="muted" style={{ color: 'var(--color-danger)' }}>{msg}</p>
+  return (
+    <p className="muted" style={{ color: 'var(--color-danger)' }}>
+      {msg}
+    </p>
+  )
 }
 
 const necSchema = z.object({
@@ -59,11 +65,41 @@ type NecForm = z.infer<typeof necSchema>
 type FornForm = z.infer<typeof fornSchema>
 type CotForm = z.infer<typeof cotSchema>
 
+/** Filtros da lista — padrão foca no que ainda precisa de ação. */
+type FiltroSituacao = 'ativas' | SituacaoNecessidade | 'todas'
+
+const FILTROS: { id: FiltroSituacao; label: string }[] = [
+  { id: 'ativas', label: 'Em aberto' },
+  { id: 'em_analise', label: 'Em análise' },
+  { id: 'em_orcamento', label: 'Em orçamento' },
+  { id: 'aprovado', label: 'Aprovadas' },
+  { id: 'reprovado', label: 'Reprovadas' },
+  { id: 'adiado', label: 'Adiadas' },
+  { id: 'todas', label: 'Todas' },
+]
+
+function badgePrioridade(p: Prioridade | null | undefined) {
+  if (!p) return null
+  const cor =
+    p === 'alta' ? '#c0392b' : p === 'media' ? '#d68910' : 'var(--color-muted, #888)'
+  return (
+    <span
+      className="badge"
+      style={{ background: cor, color: '#fff', fontSize: '0.7rem', flexShrink: 0 }}
+    >
+      {PRIORIDADE_LABEL[p]}
+    </span>
+  )
+}
+
 export function NecessidadesPage() {
   const condominioId = useCondominioStore((s) => s.condominioAtivoId)
   const qc = useQueryClient()
   const [tab, setTab] = useState<'necessidades' | 'fornecedores'>('necessidades')
   const [selecionada, setSelecionada] = useState<string | null>(null)
+  const [filtro, setFiltro] = useState<FiltroSituacao>('ativas')
+  const [novaAberta, setNovaAberta] = useState(false)
+  const [msgAprovacao, setMsgAprovacao] = useState<string | null>(null)
 
   const necQ = useQuery({
     queryKey: ['necessidades', condominioId],
@@ -85,6 +121,25 @@ export function NecessidadesPage() {
     queryFn: () => comparativoCotacoes(condominioId!, selecionada!),
     enabled: !!condominioId && !!selecionada,
   })
+  /** Histórico de decisões para saber qual cotação foi escolhida (badge correto). */
+  const decisoesQ = useQuery({
+    queryKey: ['decisoes', condominioId, selecionada],
+    queryFn: () => listarDecisoes(condominioId!, selecionada!),
+    enabled: !!condominioId && !!selecionada,
+  })
+
+  const cotacaoEscolhidaId = useMemo(() => {
+    const aprovada = decisoesQ.data?.find((d) => d.resultado === 'aprovado' && d.cotacaoEscolhidaId)
+    return aprovada?.cotacaoEscolhidaId ?? null
+  }, [decisoesQ.data])
+
+  const listaFiltrada = useMemo(() => {
+    const all = necQ.data ?? []
+    if (filtro === 'todas') return all
+    if (filtro === 'ativas')
+      return all.filter((n) => n.situacao === 'em_analise' || n.situacao === 'em_orcamento')
+    return all.filter((n) => n.situacao === filtro)
+  }, [necQ.data, filtro])
 
   const necForm = useForm<NecForm>({ resolver: zodResolver(necSchema) })
   const fornForm = useForm<FornForm>({ resolver: zodResolver(fornSchema) })
@@ -98,9 +153,11 @@ export function NecessidadesPage() {
         prioridade: d.prioridade as Prioridade | undefined,
         escopoTexto: d.escopoTexto,
       }),
-    onSuccess: () => {
+    onSuccess: (criada) => {
       qc.invalidateQueries({ queryKey: ['necessidades', condominioId] })
       necForm.reset()
+      setNovaAberta(false)
+      if (criada?.id) setSelecionada(criada.id)
     },
   })
   const criarFornM = useMutation({
@@ -134,7 +191,6 @@ export function NecessidadesPage() {
       cotForm.reset()
     },
   })
-  const [msgAprovacao, setMsgAprovacao] = useState<string | null>(null)
   const decisaoM = useMutation({
     mutationFn: (cotacaoId: string) =>
       registrarDecisao(condominioId!, selecionada!, {
@@ -147,12 +203,13 @@ export function NecessidadesPage() {
       qc.invalidateQueries({ queryKey: ['necessidades', condominioId] })
       qc.invalidateQueries({ queryKey: ['compromissos', condominioId] })
       qc.invalidateQueries({ queryKey: ['cotacoes', condominioId, selecionada] })
+      qc.invalidateQueries({ queryKey: ['decisoes', condominioId, selecionada] })
+      qc.invalidateQueries({ queryKey: ['despesas-futuras', condominioId] })
       setMsgAprovacao('Cotação aprovada. Compromisso financeiro gerado automaticamente.')
     },
   })
   const avaliarM = useMutation({
-    mutationFn: ({ id, nota }: { id: string; nota: number }) =>
-      avaliarFornecedor(id, nota),
+    mutationFn: ({ id, nota }: { id: string; nota: number }) => avaliarFornecedor(id, nota),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['fornecedores'] }),
   })
 
@@ -166,6 +223,9 @@ export function NecessidadesPage() {
       </div>
     )
   }
+
+  const necSel = necQ.data?.find((n) => n.id === selecionada)
+  const jaAprovada = necSel?.situacao === 'aprovado'
 
   return (
     <div>
@@ -192,35 +252,70 @@ export function NecessidadesPage() {
       </div>
 
       {tab === 'necessidades' && (
-        <>
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '0.75rem' }}>Nova necessidade</h3>
-            <form
-              onSubmit={necForm.handleSubmit((d) => criarNecM.mutate(d))}
-              style={{ display: 'grid', gap: '0.5rem', maxWidth: 480 }}
-            >
-              <input className="input" placeholder="Descrição" {...necForm.register('descricao')} />
-              <input className="input" placeholder="Categoria" {...necForm.register('categoria')} />
-              <select className="input" {...necForm.register('prioridade')}>
-                <option value="">Prioridade</option>
-                <option value="alta">Alta</option>
-                <option value="media">Média</option>
-                <option value="baixa">Baixa</option>
-              </select>
-              <textarea className="input" placeholder="Escopo (RN06)" {...necForm.register('escopoTexto')} />
-              <button type="submit" className="btn btn-primary" disabled={criarNecM.isPending}>
-                Criar
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: selecionada ? 'minmax(280px, 38%) 1fr' : '1fr',
+            gap: '1rem',
+            alignItems: 'start',
+          }}
+        >
+          {/* Coluna lista */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>Lista</h3>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ fontSize: '0.85rem' }}
+                onClick={() => setNovaAberta((v) => !v)}
+              >
+                {novaAberta ? 'Fechar' : '+ Nova'}
               </button>
-              <ErroApi error={criarNecM.error} />
-            </form>
-          </div>
+            </div>
 
-          <div className="card">
-            <h3 style={{ marginBottom: '0.75rem' }}>Lista</h3>
+            {novaAberta && (
+              <form
+                onSubmit={necForm.handleSubmit((d) => criarNecM.mutate(d))}
+                style={{ display: 'grid', gap: '0.5rem', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}
+              >
+                <input className="input" placeholder="Descrição *" {...necForm.register('descricao')} />
+                <input className="input" placeholder="Categoria *" {...necForm.register('categoria')} />
+                <select className="input" {...necForm.register('prioridade')}>
+                  <option value="">Prioridade</option>
+                  <option value="alta">Alta</option>
+                  <option value="media">Média</option>
+                  <option value="baixa">Baixa</option>
+                </select>
+                <textarea className="input" placeholder="Escopo (RN06)" {...necForm.register('escopoTexto')} />
+                <button type="submit" className="btn btn-primary" disabled={criarNecM.isPending}>
+                  Criar
+                </button>
+                <ErroApi error={criarNecM.error} />
+              </form>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+              {FILTROS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`btn ${filtro === f.id ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
+                  onClick={() => setFiltro(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             {necQ.isLoading && <p className="muted">Carregando…</p>}
-            {necQ.data?.length === 0 && <p className="muted">Nenhuma necessidade.</p>}
-            <ul style={{ listStyle: 'none', display: 'grid', gap: '0.5rem' }}>
-              {necQ.data?.map((n) => (
+            {!necQ.isLoading && listaFiltrada.length === 0 && (
+              <p className="muted">Nenhuma necessidade neste filtro.</p>
+            )}
+
+            <ul style={{ listStyle: 'none', display: 'grid', gap: '0.4rem', margin: 0, padding: 0 }}>
+              {listaFiltrada.map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
@@ -228,33 +323,60 @@ export function NecessidadesPage() {
                     style={{
                       width: '100%',
                       textAlign: 'left',
+                      padding: '0.65rem 0.75rem',
                       border:
                         selecionada === n.id
                           ? '1px solid var(--color-primary)'
                           : '1px solid var(--color-border)',
+                      background: selecionada === n.id ? 'var(--color-bg)' : undefined,
                     }}
-                    onClick={() => setSelecionada(n.id)}
+                    onClick={() => {
+                      setSelecionada(n.id)
+                      setMsgAprovacao(null)
+                    }}
                   >
-                    <strong>{n.descricao}</strong>
-                    <span className="muted" style={{ marginLeft: '0.5rem' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        width: '100%',
+                      }}
+                    >
+                      <strong
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          textAlign: 'left',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {n.descricao}
+                      </strong>
+                      {badgePrioridade(n.prioridade as Prioridade | null)}
+                    </div>
+                    <div className="muted" style={{ fontSize: '0.8rem', marginTop: '0.25rem', textAlign: 'left' }}>
                       {n.categoria} · {SITUACAO_NECESSIDADE_LABEL[n.situacao as SituacaoNecessidade]}
-                      {n.prioridade
-                        ? ` · ${PRIORIDADE_LABEL[n.prioridade as Prioridade]}`
-                        : ''}
-                    </span>
+                    </div>
                   </button>
                 </li>
               ))}
             </ul>
           </div>
 
-          {selecionada && (() => {
-            const necSel = necQ.data?.find((n) => n.id === selecionada)
-            const jaAprovada = necSel?.situacao === 'aprovado'
-            return (
-            <div className="card" style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h3 style={{ margin: 0 }}>Cotações</h3>
+          {/* Coluna detalhe / cotações */}
+          {selecionada && necSel && (
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 0.25rem' }}>{necSel.descricao}</h3>
+                  <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+                    {badgePrioridade(necSel.prioridade as Prioridade | null)}
+                    {necSel.categoria} · {SITUACAO_NECESSIDADE_LABEL[necSel.situacao as SituacaoNecessidade]}
+                  </p>
+                </div>
                 <button
                   type="button"
                   className="btn btn-ghost"
@@ -267,104 +389,149 @@ export function NecessidadesPage() {
                   Fechar
                 </button>
               </div>
+
               {jaAprovada && (
-                <p className="muted" style={{ marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
-                  Necessidade já aprovada. Compromisso gerado em Decisões/Compromissos.
+                <p className="muted" style={{ margin: 0, color: 'var(--color-primary)' }}>
+                  Necessidade aprovada.
+                  {cotacaoEscolhidaId
+                    ? ' Cotação escolhida destacada abaixo.'
+                    : ' Compromisso gerado (pode ter sido emergencial, sem cotação).'}{' '}
+                  <Link to="/compromissos">Ver em Decisões/Compromissos →</Link>
                 </p>
               )}
               {msgAprovacao && (
-                <p style={{ marginBottom: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                  {msgAprovacao}
+                <p style={{ margin: 0, color: 'var(--color-primary)', fontWeight: 600 }}>
+                  {msgAprovacao}{' '}
+                  <Link to="/compromissos">Abrir compromissos →</Link>
                 </p>
               )}
+
               {compQ.data && compQ.data.cotacoes.length > 0 && (
-                <p className="muted" style={{ marginBottom: '0.75rem' }}>
-                  Menor: {formatMoney(compQ.data.menorValor)} · Maior:{' '}
-                  {formatMoney(compQ.data.maiorValor)} · Diferença:{' '}
-                  {formatMoney(compQ.data.diferenca)}
+                <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+                  Comparativo — menor {formatMoney(compQ.data.menorValor)} · maior{' '}
+                  {formatMoney(compQ.data.maiorValor)} · dif. {formatMoney(compQ.data.diferenca)}
                 </p>
               )}
-              <ul style={{ listStyle: 'none', display: 'grid', gap: '0.35rem', marginBottom: '1rem' }}>
-                {cotQ.data?.map((c) => (
-                  <li
-                    key={c.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.35rem 0',
-                      borderBottom: '1px solid var(--color-border)',
-                    }}
-                  >
-                    <span>
-                      {c.fornecedorNome} — {formatMoney(c.valor)}
-                      {c.prazoExecucaoDias ? ` · ${c.prazoExecucaoDias}d` : ''}
-                    </span>
-                    {jaAprovada ? (
-                      <span className="badge">aprovada</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={decisaoM.isPending}
-                        onClick={() => {
-                          if (decisaoM.isPending) return
-                          decisaoM.mutate(c.id)
+
+              <div>
+                <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                  Cotações ({cotQ.data?.length ?? 0})
+                </p>
+                <ul style={{ listStyle: 'none', display: 'grid', gap: '0.35rem', margin: 0, padding: 0 }}>
+                  {cotQ.data?.map((c) => {
+                    const escolhida = cotacaoEscolhidaId === c.id
+                    const maisBarata = compQ.data?.fornecedorMaisBaratoId === c.fornecedorId
+                    return (
+                      <li
+                        key={c.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.5rem 0.6rem',
+                          borderRadius: 'var(--radius)',
+                          border: escolhida
+                            ? '1px solid var(--color-primary)'
+                            : '1px solid var(--color-border)',
+                          background: escolhida ? 'var(--color-bg)' : undefined,
+                          opacity: jaAprovada && !escolhida ? 0.65 : 1,
                         }}
                       >
-                        {decisaoM.isPending && decisaoM.variables === c.id
-                          ? 'Aprovando…'
-                          : 'Aprovar cotação'}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                        <span style={{ fontSize: '0.9rem' }}>
+                          <strong>{c.fornecedorNome}</strong> — {formatMoney(c.valor)}
+                          {c.prazoExecucaoDias ? ` · ${c.prazoExecucaoDias}d` : ''}
+                          {maisBarata && !escolhida && (
+                            <span className="badge" style={{ marginLeft: '0.4rem', fontSize: '0.7rem' }}>
+                              menor valor
+                            </span>
+                          )}
+                        </span>
+                        {escolhida ? (
+                          <span className="badge" style={{ background: 'var(--color-primary)', color: '#fff' }}>
+                            escolhida
+                          </span>
+                        ) : jaAprovada ? (
+                          <span className="muted" style={{ fontSize: '0.8rem' }}>
+                            não escolhida
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={decisaoM.isPending}
+                            onClick={() => {
+                              if (decisaoM.isPending) return
+                              decisaoM.mutate(c.id)
+                            }}
+                          >
+                            {decisaoM.isPending && decisaoM.variables === c.id
+                              ? 'Aprovando…'
+                              : 'Aprovar'}
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })}
+                  {cotQ.data?.length === 0 && (
+                    <li className="muted">Nenhuma cotação ainda.</li>
+                  )}
+                </ul>
+              </div>
+
               {!jaAprovada && (
-              <form
-                onSubmit={cotForm.handleSubmit((d) => cotM.mutate(d))}
-                style={{ display: 'grid', gap: '0.5rem', maxWidth: 480 }}
-              >
-                <select className="input" {...cotForm.register('fornecedorId')}>
-                  <option value="">Fornecedor</option>
-                  {fornQ.data?.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.nome} ({f.categoria})
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="input"
-                  type="number"
-                  step="0.01"
-                  placeholder="Valor"
-                  {...cotForm.register('valor')}
-                />
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="Prazo (dias)"
-                  {...cotForm.register('prazoExecucaoDias')}
-                />
-                <input className="input" placeholder="Garantia" {...cotForm.register('garantiaDescricao')} />
-                <input
-                  className="input"
-                  placeholder="Condições de pagamento"
-                  {...cotForm.register('condicoesPagamento')}
-                />
-                <input className="input" type="date" {...cotForm.register('validade')} />
-                <button type="submit" className="btn btn-primary" disabled={cotM.isPending}>
-                  Registrar cotação
-                </button>
-                <ErroApi error={cotM.error} />
-                <ErroApi error={decisaoM.error} />
-              </form>
+                <form
+                  onSubmit={cotForm.handleSubmit((d) => cotM.mutate(d))}
+                  style={{
+                    display: 'grid',
+                    gap: '0.5rem',
+                    paddingTop: '0.5rem',
+                    borderTop: '1px solid var(--color-border)',
+                  }}
+                >
+                  <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+                    Registrar cotação
+                  </p>
+                  <select className="input" {...cotForm.register('fornecedorId')}>
+                    <option value="">Fornecedor</option>
+                    {fornQ.data?.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nome} ({f.categoria})
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      placeholder="Valor"
+                      {...cotForm.register('valor')}
+                    />
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Prazo (dias)"
+                      {...cotForm.register('prazoExecucaoDias')}
+                    />
+                  </div>
+                  <input className="input" placeholder="Garantia" {...cotForm.register('garantiaDescricao')} />
+                  <input
+                    className="input"
+                    placeholder="Condições de pagamento"
+                    {...cotForm.register('condicoesPagamento')}
+                  />
+                  <input className="input" type="date" {...cotForm.register('validade')} />
+                  <button type="submit" className="btn btn-primary" disabled={cotM.isPending}>
+                    Registrar cotação
+                  </button>
+                  <ErroApi error={cotM.error} />
+                  <ErroApi error={decisaoM.error} />
+                </form>
               )}
             </div>
-            )
-          })()}
-        </>
+          )}
+        </div>
       )}
 
       {tab === 'fornecedores' && (
@@ -379,7 +546,11 @@ export function NecessidadesPage() {
               <input className="input" placeholder="Categoria *" {...fornForm.register('categoria')} />
               <input className="input" placeholder="Telefone (opcional)" {...fornForm.register('telefone')} />
               <input className="input" placeholder="E-mail (opcional)" {...fornForm.register('email')} />
-              <textarea className="input" placeholder="Observações (opcional)" {...fornForm.register('observacoes')} />
+              <textarea
+                className="input"
+                placeholder="Observações (opcional)"
+                {...fornForm.register('observacoes')}
+              />
               <button type="submit" className="btn btn-primary" disabled={criarFornM.isPending}>
                 Criar
               </button>

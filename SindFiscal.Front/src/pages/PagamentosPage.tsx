@@ -8,6 +8,7 @@ import {
   entrarNaFila,
   listarCompromissos,
   listarContas,
+  listarNecessidades,
   listarPagamentos,
   registrarPagamento,
   reordenarFila,
@@ -15,6 +16,7 @@ import {
 import {
   STATUS_COMPROMISSO_LABEL,
   TIPO_PAGAMENTO_LABEL,
+  type CompromissoFinanceiro,
   type StatusCompromisso,
   type TipoPagamento,
 } from '@/types'
@@ -28,7 +30,23 @@ function ErroApi({ error }: { error: unknown }) {
   if (!error) return null
   const msg =
     error instanceof Error ? error.message : typeof error === 'string' ? error : 'Erro'
-  return <p className="muted" style={{ color: 'var(--color-danger)' }}>{msg}</p>
+  return (
+    <p className="muted" style={{ color: 'var(--color-danger)' }}>
+      {msg}
+    </p>
+  )
+}
+
+function rotuloCompromisso(
+  c: Pick<CompromissoFinanceiro, 'categoria' | 'necessidadeId'>,
+  necMap: Map<string, string>,
+) {
+  if (c.necessidadeId && necMap.has(c.necessidadeId)) {
+    const desc = necMap.get(c.necessidadeId)!
+    if (desc !== c.categoria) return `${desc} (${c.categoria})`
+    return desc
+  }
+  return c.categoria
 }
 
 const pagSchema = z.object({
@@ -55,6 +73,11 @@ export function PagamentosPage() {
     queryFn: () => listarCompromissos(condominioId!),
     enabled: !!condominioId && tab === 'pagamentos',
   })
+  const necQ = useQuery({
+    queryKey: ['necessidades', condominioId],
+    queryFn: () => listarNecessidades(condominioId!),
+    enabled: !!condominioId,
+  })
   const contasQ = useQuery({
     queryKey: ['contas', condominioId],
     queryFn: () => listarContas(condominioId!),
@@ -65,6 +88,12 @@ export function PagamentosPage() {
     queryFn: () => listarPagamentos(condominioId!, compromissoId!),
     enabled: !!condominioId && !!compromissoId,
   })
+
+  const necMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of necQ.data ?? []) m.set(n.id, n.descricao)
+    return m
+  }, [necQ.data])
 
   const filaOrdenada = useMemo(
     () =>
@@ -180,9 +209,9 @@ export function PagamentosPage() {
                   <span className="badge" style={{ marginRight: '0.5rem' }}>
                     #{c.prioridadeFila ?? idx + 1}
                   </span>
-                  {c.categoria} — {formatMoney(c.valorAprovado)}
+                  <strong>{rotuloCompromisso(c, necMap)}</strong>
                   <span className="muted" style={{ marginLeft: '0.5rem' }}>
-                    saldo {formatMoney(c.saldoRemanescente)}
+                    {formatMoney(c.valorAprovado)} · saldo {formatMoney(c.saldoRemanescente)}
                   </span>
                 </span>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -247,7 +276,7 @@ export function PagamentosPage() {
                 )
                 .map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.categoria} — {formatMoney(c.saldoRemanescente)} (
+                    {rotuloCompromisso(c, necMap)} — {formatMoney(c.saldoRemanescente)} (
                     {STATUS_COMPROMISSO_LABEL[c.status as StatusCompromisso]})
                   </option>
                 ))}
@@ -263,7 +292,7 @@ export function PagamentosPage() {
                   disabled={entrarM.isPending}
                   onClick={() => entrarM.mutate(c.id)}
                 >
-                  Entrar na fila: {c.categoria}
+                  Entrar na fila: {rotuloCompromisso(c, necMap)}
                 </button>
               ))}
           </div>
@@ -275,7 +304,10 @@ export function PagamentosPage() {
                 {pagQ.data?.length === 0 && <p className="muted">Nenhum pagamento.</p>}
                 <ul style={{ listStyle: 'none' }}>
                   {pagQ.data?.map((p) => (
-                    <li key={p.id} style={{ padding: '0.35rem 0', borderBottom: '1px solid var(--color-border)' }}>
+                    <li
+                      key={p.id}
+                      style={{ padding: '0.35rem 0', borderBottom: '1px solid var(--color-border)' }}
+                    >
                       {TIPO_PAGAMENTO_LABEL[p.tipo]} — {formatMoney(p.valor)} em {p.data}
                     </li>
                   ))}
@@ -301,7 +333,13 @@ export function PagamentosPage() {
                     <option value="adiantamento">Adiantamento</option>
                     <option value="entrada">Entrada</option>
                   </select>
-                  <input className="input" type="number" step="0.01" placeholder="Valor" {...form.register('valor')} />
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.01"
+                    placeholder="Valor"
+                    {...form.register('valor')}
+                  />
                   <input className="input" type="date" {...form.register('data')} />
                   <button type="submit" className="btn btn-primary" disabled={pagM.isPending}>
                     Registrar

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ajustarValorCompromisso,
   adiarCompromisso,
@@ -12,15 +12,20 @@ import {
   entrarNaFila,
   iniciarExecucao,
   listarCompromissos,
+  listarCotacoes,
   listarDecisoes,
+  listarNecessidades,
   obterCompromisso,
   registrarDecisao,
   vincularGasto,
 } from '@/services/api'
 import {
+  PRIORIDADE_LABEL,
   RESULTADO_DECISAO_LABEL,
+  SITUACAO_NECESSIDADE_LABEL,
   STATUS_COMPROMISSO_LABEL,
   type ResultadoDecisao,
+  type SituacaoNecessidade,
   type StatusCompromisso,
 } from '@/types'
 import { useCondominioStore } from '@/stores/condominioStore'
@@ -49,7 +54,7 @@ const ajusteSchema = z.object({
 type AjusteForm = z.infer<typeof ajusteSchema>
 
 const decisaoSchema = z.object({
-  necessidadeId: z.string().uuid('Informe o ID (uuid) da necessidade'),
+  necessidadeId: z.string().min(1, 'Selecione a necessidade'),
   cotacaoEscolhidaId: z.string().optional(),
   resultado: z.enum(['aprovado', 'reprovado', 'adiado']),
   justificativa: z.string().optional(),
@@ -57,6 +62,13 @@ const decisaoSchema = z.object({
   data: z.string().min(1),
 })
 type DecisaoForm = z.infer<typeof decisaoSchema>
+
+/** Situações em que ainda faz sentido registrar decisão. */
+const SITUACOES_DECIDIVEIS: SituacaoNecessidade[] = [
+  'em_analise',
+  'em_orcamento',
+  'adiado',
+]
 
 function ErroApi({ error }: { error: unknown }) {
   if (!error) return null
@@ -293,15 +305,86 @@ function DetalheCompromisso({
   )
 }
 
+function rotuloCompromisso(
+  c: { categoria: string; necessidadeId: string | null },
+  necMap: Map<string, { descricao: string; prioridade: string | null }>,
+) {
+  if (c.necessidadeId && necMap.has(c.necessidadeId)) {
+    return necMap.get(c.necessidadeId)!.descricao
+  }
+  return c.categoria
+}
+
+function badgePrioridadeComp(p: string | null | undefined) {
+  if (!p || !(p in PRIORIDADE_LABEL)) return null
+  const prioridade = p as 'alta' | 'media' | 'baixa'
+  const cor =
+    prioridade === 'alta' ? '#c0392b' : prioridade === 'media' ? '#d68910' : '#7f8c8d'
+  return (
+    <span
+      className="badge"
+      style={{ background: cor, color: '#fff', fontSize: '0.7rem', flexShrink: 0 }}
+    >
+      {PRIORIDADE_LABEL[prioridade]}
+    </span>
+  )
+}
+
+const PAGE_SIZE = 15
+type FiltroCompromisso = StatusCompromisso | 'ativos' | ''
+
+const FILTROS_COMPROMISSO: { id: FiltroCompromisso; label: string }[] = [
+  { id: 'ativos', label: 'Ativos' },
+  { id: 'aguardando_execucao', label: 'Aguardando' },
+  { id: 'em_fila_execucao', label: 'Em fila' },
+  { id: 'em_execucao', label: 'Em execução' },
+  { id: 'concluido', label: 'Concluídos' },
+  { id: 'cancelado', label: 'Cancelados' },
+  { id: '', label: 'Todos' },
+]
+
 function PainelCompromissos({ condominioId }: { condominioId: string }) {
   const qc = useQueryClient()
-  const [filtroStatus, setFiltroStatus] = useState<StatusCompromisso | ''>('')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroCompromisso>('ativos')
   const [expandidoId, setExpandidoId] = useState<string | null>(null)
+  const [pagina, setPagina] = useState(0)
+
+  const statusApi =
+    filtroStatus === 'ativos' || filtroStatus === '' ? undefined : filtroStatus
 
   const compromissosQ = useQuery({
     queryKey: ['compromissos', condominioId, filtroStatus],
-    queryFn: () => listarCompromissos(condominioId, filtroStatus || undefined),
+    queryFn: () => listarCompromissos(condominioId, statusApi),
   })
+
+  const necQ = useQuery({
+    queryKey: ['necessidades', condominioId],
+    queryFn: () => listarNecessidades(condominioId),
+  })
+
+  const necMap = useMemo(() => {
+    const m = new Map<string, { descricao: string; prioridade: string | null }>()
+    for (const n of necQ.data ?? [])
+      m.set(n.id, { descricao: n.descricao, prioridade: n.prioridade ?? null })
+    return m
+  }, [necQ.data])
+
+  const listaBase = useMemo(() => {
+    let items = (compromissosQ.data ?? []).filter((c) => !c.compromissoPaiId)
+    if (filtroStatus === 'ativos') {
+      items = items.filter((c) =>
+        ['aguardando_execucao', 'em_fila_execucao', 'em_execucao'].includes(c.status),
+      )
+    }
+    return items
+  }, [compromissosQ.data, filtroStatus])
+
+  const totalPaginas = Math.max(1, Math.ceil(listaBase.length / PAGE_SIZE))
+  const paginaSegura = Math.min(pagina, totalPaginas - 1)
+  const paginaItens = listaBase.slice(
+    paginaSegura * PAGE_SIZE,
+    paginaSegura * PAGE_SIZE + PAGE_SIZE,
+  )
 
   const avulsoForm = useForm<AvulsoForm>({ resolver: zodResolver(avulsoSchema) })
   const criarAvulsoM = useMutation({
@@ -311,6 +394,12 @@ function PainelCompromissos({ condominioId }: { condominioId: string }) {
       avulsoForm.reset()
     },
   })
+
+  function mudarFiltro(f: FiltroCompromisso) {
+    setFiltroStatus(f)
+    setPagina(0)
+    setExpandidoId(null)
+  }
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -323,7 +412,7 @@ function PainelCompromissos({ condominioId }: { condominioId: string }) {
           style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', alignItems: 'end' }}
         >
           <div className="form-field">
-            <label>Categoria</label>
+            <label>Categoria / título</label>
             <input {...avulsoForm.register('categoria')} placeholder="Ex.: Manutenção elevador" />
           </div>
           <div className="form-field">
@@ -338,115 +427,289 @@ function PainelCompromissos({ condominioId }: { condominioId: string }) {
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className={`btn ${filtroStatus === '' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setFiltroStatus('')}
-        >
-          Todos
-        </button>
-        {(Object.keys(STATUS_COMPROMISSO_LABEL) as StatusCompromisso[]).map((s) => (
+        {FILTROS_COMPROMISSO.map((f) => (
           <button
-            key={s}
+            key={f.id || 'todos'}
             type="button"
-            className={`btn ${filtroStatus === s ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setFiltroStatus(s)}
+            className={`btn ${filtroStatus === f.id ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => mudarFiltro(f.id)}
           >
-            {STATUS_COMPROMISSO_LABEL[s]}
+            {f.label}
           </button>
         ))}
       </div>
 
       {compromissosQ.isLoading && <p className="muted">Carregando…</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {compromissosQ.data?.filter((c) => !c.compromissoPaiId).map((c) => (
-          <div key={c.id} style={{ padding: '1rem', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div>
-                <strong>{c.categoria}</strong>
-                <div className="muted" style={{ fontSize: '0.8rem' }}>
-                  {formatMoney(c.valorAprovado)}
-                  {c.prioridadeFila !== null && ` — posição na fila: ${c.prioridadeFila}`}
+        {paginaItens.map((c) => {
+          const titulo = rotuloCompromisso(c, necMap)
+          const necInfo = c.necessidadeId ? necMap.get(c.necessidadeId) : undefined
+          const mostraCategoriaSec = Boolean(c.necessidadeId && titulo !== c.categoria)
+          return (
+            <div
+              key={c.id}
+              style={{
+                padding: '1rem',
+                background: 'var(--color-bg)',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  width: '100%',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {titulo}
+                  </div>
+                  <div className="muted" style={{ fontSize: '0.8rem', textAlign: 'left' }}>
+                    {mostraCategoriaSec && <>{c.categoria} · </>}
+                    {formatMoney(c.valorAprovado)}
+                    {c.prioridadeFila !== null && ` · fila #${c.prioridadeFila}`}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.4rem',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    marginLeft: 'auto',
+                  }}
+                >
+                  {badgePrioridadeComp(necInfo?.prioridade)}
+                  {badgeStatus(c.status)}
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.8rem' }}
+                    onClick={() => setExpandidoId(expandidoId === c.id ? null : c.id)}
+                  >
+                    {expandidoId === c.id ? 'Ocultar' : 'Detalhar'}
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                {badgeStatus(c.status)}
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ fontSize: '0.8rem' }}
-                  onClick={() => setExpandidoId(expandidoId === c.id ? null : c.id)}
-                >
-                  {expandidoId === c.id ? 'Ocultar' : 'Detalhar'}
-                </button>
-              </div>
+              {expandidoId === c.id && (
+                <DetalheCompromisso condominioId={condominioId} compromissoId={c.id} />
+              )}
             </div>
-            {expandidoId === c.id && <DetalheCompromisso condominioId={condominioId} compromissoId={c.id} />}
-          </div>
-        ))}
-        {compromissosQ.data?.length === 0 && (
-          <p className="muted" style={{ padding: '1rem 0' }}>Nenhum compromisso encontrado.</p>
+          )
+        })}
+        {listaBase.length === 0 && !compromissosQ.isLoading && (
+          <p className="muted" style={{ padding: '1rem 0' }}>
+            Nenhum compromisso neste filtro.
+          </p>
         )}
       </div>
+
+      {listaBase.length > PAGE_SIZE && (
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={paginaSegura <= 0}
+            onClick={() => setPagina((p) => Math.max(0, p - 1))}
+          >
+            ← Anterior
+          </button>
+          <span className="muted" style={{ fontSize: '0.85rem' }}>
+            {paginaSegura + 1} / {totalPaginas} ({listaBase.length} itens)
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={paginaSegura >= totalPaginas - 1}
+            onClick={() => setPagina((p) => Math.min(totalPaginas - 1, p + 1))}
+          >
+            Próxima →
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 function PainelDecisoes({ condominioId }: { condominioId: string }) {
-  const [necessidadeId, setNecessidadeId] = useState('')
   const qc = useQueryClient()
+  const [necessidadeId, setNecessidadeId] = useState('')
+
+  const necessidadesQ = useQuery({
+    queryKey: ['necessidades', condominioId],
+    queryFn: () => listarNecessidades(condominioId),
+  })
+
+  const cotacoesQ = useQuery({
+    queryKey: ['cotacoes', condominioId, necessidadeId],
+    queryFn: () => listarCotacoes(condominioId, necessidadeId),
+    enabled: !!necessidadeId,
+  })
 
   const decisoesQ = useQuery({
     queryKey: ['decisoes', condominioId, necessidadeId],
     queryFn: () => listarDecisoes(condominioId, necessidadeId),
-    enabled: !!necessidadeId && z.string().uuid().safeParse(necessidadeId).success,
+    enabled: !!necessidadeId,
   })
 
   const form = useForm<DecisaoForm>({
     resolver: zodResolver(decisaoSchema),
-    defaultValues: { resultado: 'aprovado', data: new Date().toISOString().slice(0, 10) },
+    defaultValues: {
+      necessidadeId: '',
+      cotacaoEscolhidaId: '',
+      resultado: 'aprovado',
+      data: new Date().toISOString().slice(0, 10),
+    },
   })
+
+  const necessidadeSelecionada = form.watch('necessidadeId')
+  const resultadoSelecionado = form.watch('resultado')
+
+  useEffect(() => {
+    setNecessidadeId(necessidadeSelecionada || '')
+  }, [necessidadeSelecionada])
+
+  const elegiveis =
+    necessidadesQ.data?.filter((n) => SITUACOES_DECIDIVEIS.includes(n.situacao)) ?? []
+  const outras =
+    necessidadesQ.data?.filter((n) => !SITUACOES_DECIDIVEIS.includes(n.situacao)) ?? []
 
   const registrarM = useMutation({
     mutationFn: (d: DecisaoForm) =>
       registrarDecisao(condominioId, d.necessidadeId, {
         cotacaoEscolhidaId: d.cotacaoEscolhidaId || null,
         resultado: d.resultado as ResultadoDecisao,
-        justificativa: d.justificativa,
-        referenciaRespaldo: d.referenciaRespaldo,
+        justificativa: d.justificativa || undefined,
+        referenciaRespaldo: d.referenciaRespaldo || undefined,
         data: d.data,
       }),
     onSuccess: (_, vars) => {
       setNecessidadeId(vars.necessidadeId)
+      form.reset({
+        necessidadeId: vars.necessidadeId,
+        cotacaoEscolhidaId: '',
+        resultado: 'aprovado',
+        data: new Date().toISOString().slice(0, 10),
+        justificativa: '',
+        referenciaRespaldo: '',
+      })
       qc.invalidateQueries({ queryKey: ['decisoes', condominioId, vars.necessidadeId] })
       qc.invalidateQueries({ queryKey: ['compromissos', condominioId] })
+      qc.invalidateQueries({ queryKey: ['necessidades', condominioId] })
+      qc.invalidateQueries({ queryKey: ['despesas-futuras', condominioId] })
     },
   })
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <p className="muted" style={{ fontSize: '0.85rem' }}>
-        RF09 — decisão como evento histórico. Aprovar gera automaticamente o compromisso financeiro (RF10).
-        O módulo de Necessidades/Cotações ainda não tem tela própria — informe o ID (uuid) da necessidade abaixo.
+        RF09 — decisão como evento histórico imutável (RN09). Aprovar gera automaticamente o
+        compromisso financeiro (RF10). Selecione a necessidade e, se houver, a cotação escolhida.
       </p>
 
       <form
         onSubmit={form.handleSubmit((d) => registrarM.mutate(d))}
-        style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', alignItems: 'end' }}
+        style={{
+          display: 'grid',
+          gap: '0.75rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          alignItems: 'end',
+        }}
       >
-        <div className="form-field">
-          <label>ID da necessidade</label>
-          <input {...form.register('necessidadeId')} placeholder="uuid" />
+        <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+          <label>Necessidade</label>
+          <select
+            className="select-condominio"
+            style={{ width: '100%' }}
+            {...form.register('necessidadeId', {
+              onChange: () => form.setValue('cotacaoEscolhidaId', ''),
+            })}
+            disabled={necessidadesQ.isLoading}
+          >
+            <option value="">
+              {necessidadesQ.isLoading ? 'Carregando…' : 'Selecione uma necessidade'}
+            </option>
+            {elegiveis.length > 0 && (
+              <optgroup label="Aguardando decisão">
+                {elegiveis.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.descricao} — {n.categoria}
+                    {n.prioridade ? ` (${PRIORIDADE_LABEL[n.prioridade]})` : ''} —{' '}
+                    {SITUACAO_NECESSIDADE_LABEL[n.situacao]}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {outras.length > 0 && (
+              <optgroup label="Já decididas / outras">
+                {outras.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.descricao} — {n.categoria} — {SITUACAO_NECESSIDADE_LABEL[n.situacao]}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
         </div>
-        <div className="form-field">
-          <label>Cotação escolhida (opcional)</label>
-          <input {...form.register('cotacaoEscolhidaId')} placeholder="uuid" />
+
+        <div className="form-field" style={{ gridColumn: '1 / -1' }}>
+          <label>
+            Cotação escolhida
+            {resultadoSelecionado === 'aprovado' ? ' (recomendada na aprovação)' : ' (opcional)'}
+          </label>
+          <select
+            className="select-condominio"
+            style={{ width: '100%' }}
+            {...form.register('cotacaoEscolhidaId')}
+            disabled={!necessidadeId || cotacoesQ.isLoading}
+          >
+            <option value="">
+              {!necessidadeId
+                ? 'Selecione a necessidade primeiro'
+                : cotacoesQ.isLoading
+                  ? 'Carregando cotações…'
+                  : cotacoesQ.data?.length
+                    ? 'Nenhuma (emergencial / sem cotação prévia — RN08)'
+                    : 'Nenhuma cotação registrada'}
+            </option>
+            {cotacoesQ.data?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.fornecedorNome} — {formatMoney(c.valor)}
+                {c.prazoExecucaoDias != null ? ` — ${c.prazoExecucaoDias} dias` : ''}
+                {c.validade ? ` — vál. ${c.validade}` : ''}
+              </option>
+            ))}
+          </select>
+          {necessidadeId && cotacoesQ.data && cotacoesQ.data.length > 0 && (
+            <p className="muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              {cotacoesQ.data.length} cotação(ões) · menor{' '}
+              {formatMoney(Math.min(...cotacoesQ.data.map((c) => c.valor)))} · maior{' '}
+              {formatMoney(Math.max(...cotacoesQ.data.map((c) => c.valor)))}
+            </p>
+          )}
         </div>
+
         <div className="form-field">
           <label>Resultado</label>
-          <select className="select-condominio" style={{ width: '100%' }} {...form.register('resultado')}>
+          <select
+            className="select-condominio"
+            style={{ width: '100%' }}
+            {...form.register('resultado')}
+          >
             {(Object.keys(RESULTADO_DECISAO_LABEL) as ResultadoDecisao[]).map((r) => (
-              <option key={r} value={r}>{RESULTADO_DECISAO_LABEL[r]}</option>
+              <option key={r} value={r}>
+                {RESULTADO_DECISAO_LABEL[r]}
+              </option>
             ))}
           </select>
         </div>
@@ -456,40 +719,72 @@ function PainelDecisoes({ condominioId }: { condominioId: string }) {
         </div>
         <div className="form-field">
           <label>Justificativa</label>
-          <input {...form.register('justificativa')} />
+          <input {...form.register('justificativa')} placeholder="Motivo / contexto" />
         </div>
         <div className="form-field">
           <label>Referência (ata/assembleia)</label>
-          <input {...form.register('referenciaRespaldo')} />
+          <input {...form.register('referenciaRespaldo')} placeholder="Ex.: Ata 12/2026" />
         </div>
-        <button type="submit" className="btn btn-primary" disabled={registrarM.isPending}>
-          Registrar decisão
+        <button type="submit" className="btn btn-primary" disabled={registrarM.isPending || !necessidadeSelecionada}>
+          {registrarM.isPending ? 'Registrando…' : 'Registrar decisão'}
         </button>
       </form>
       <ErroApi error={form.formState.errors.necessidadeId?.message} />
       <ErroApi error={registrarM.error} />
 
-      <div className="form-field">
-        <label>Ver histórico de decisões da necessidade</label>
-        <input value={necessidadeId} onChange={(e) => setNecessidadeId(e.target.value)} placeholder="uuid da necessidade" />
-      </div>
-
-      {decisoesQ.isLoading && <p className="muted">Carregando…</p>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {decisoesQ.data?.map((d) => (
-          <div key={d.id} style={{ padding: '0.75rem', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>{RESULTADO_DECISAO_LABEL[d.resultado]}</strong>
-              <span className="muted">{d.data}</span>
-            </div>
-            {d.justificativa && <p className="muted" style={{ marginTop: '0.25rem' }}>{d.justificativa}</p>}
-            {d.referenciaRespaldo && <p className="muted">Ref.: {d.referenciaRespaldo}</p>}
+      {necessidadeId && (
+        <div>
+          <p className="muted" style={{ fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+            Histórico de decisões desta necessidade (imutável — RN09)
+          </p>
+          {decisoesQ.isLoading && <p className="muted">Carregando…</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {decisoesQ.data?.map((d) => {
+              const cot = cotacoesQ.data?.find((c) => c.id === d.cotacaoEscolhidaId)
+              return (
+                <div
+                  key={d.id}
+                  style={{
+                    padding: '0.75rem',
+                    background: 'var(--color-bg)',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid var(--color-border)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <strong>{RESULTADO_DECISAO_LABEL[d.resultado]}</strong>
+                    <span className="muted">{d.data}</span>
+                  </div>
+                  {cot && (
+                    <p className="muted" style={{ marginTop: '0.25rem' }}>
+                      Cotação: {cot.fornecedorNome} — {formatMoney(cot.valor)}
+                    </p>
+                  )}
+                  {d.justificativa && (
+                    <p className="muted" style={{ marginTop: '0.25rem' }}>
+                      {d.justificativa}
+                    </p>
+                  )}
+                  {d.referenciaRespaldo && (
+                    <p className="muted">Ref.: {d.referenciaRespaldo}</p>
+                  )}
+                </div>
+              )
+            })}
+            {decisoesQ.data?.length === 0 && (
+              <p className="muted">Nenhuma decisão registrada para esta necessidade ainda.</p>
+            )}
           </div>
-        ))}
-        {necessidadeId && decisoesQ.data?.length === 0 && (
-          <p className="muted">Nenhuma decisão registrada para esta necessidade ainda.</p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!necessidadesQ.isLoading && elegiveis.length === 0 && (
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          Nenhuma necessidade em análise, em orçamento ou adiada. Crie ou avance itens em{' '}
+          <strong>Necessidades</strong>.
+        </p>
+      )}
     </div>
   )
 }
