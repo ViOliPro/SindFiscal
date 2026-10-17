@@ -13,7 +13,9 @@ public record DashboardResponse(
     bool NecessidadeDeArrecadacaoExtra,
     decimal ValorEmFilaDeExecucao,
     int ItensPendentesNaAreaDeAcerto,
-    int ItensEmAnaliseOuOrcamento
+    int ItensEmAnaliseOuOrcamento,
+    /// <summary>Soma das pendências de consistência (ver PendenciasService).</summary>
+    int PendenciasAbertas
 );
 
 public record RelatorioPrestacaoContasRequest(DateOnly Inicio, DateOnly Fim);

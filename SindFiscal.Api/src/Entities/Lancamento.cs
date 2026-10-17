@@ -14,6 +14,14 @@ public class Lancamento
     public FonteLancamento Fonte { get; set; } = FonteLancamento.Manual;
     public string? Descricao { get; set; }
 
+    /// <summary>
+    /// Saída que o síndico decidiu não conciliar com pagamento (ex.: despesa
+    /// ordinária da administradora — RN25). Sai da lista de pendências, com motivo.
+    /// </summary>
+    public bool ConciliacaoDispensada { get; set; }
+
+    public string? MotivoDispensa { get; set; }
+
     /// <summary>RN32 — estorno é vinculado ao lançamento original, nunca solto.</summary>
     public Guid? EstornoDeId { get; set; }
 

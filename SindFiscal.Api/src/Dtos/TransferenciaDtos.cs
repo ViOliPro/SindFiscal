@@ -14,7 +14,8 @@ public record TransferenciaResponse(
     OrigemTransferencia Origem,
     MotivoTransferencia Motivo,
     StatusTransferencia Status,
-    DateOnly? DataExecucao
+    DateOnly? DataExecucao,
+    string? Descricao = null
 );
 
 /// <summary>

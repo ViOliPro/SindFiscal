@@ -67,6 +67,7 @@ function Grupo({
                 onChange={() => onToggle(t.id)}
               />
               <span>
+                {t.descricao && <strong style={{ marginRight: '0.5rem' }}>{t.descricao} ·</strong>}
                 {t.contaOrigemNome} → {t.contaDestinoNome}
                 <strong style={{ marginLeft: '0.5rem' }}>{formatMoney(t.valor)}</strong>
                 <span className="muted" style={{ marginLeft: '0.5rem' }}>

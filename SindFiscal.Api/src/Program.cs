@@ -22,6 +22,8 @@ builder.Services.AddScoped<AreaDeAcertoService>();
 builder.Services.AddScoped<FilaExecucaoService>();
 builder.Services.AddScoped<ContaBancariaService>();
 builder.Services.AddScoped<DespesasFuturasService>();
+builder.Services.AddScoped<PendenciasService>();
+builder.Services.AddScoped<RelatorioMensalService>();
 
 // ---------------------------------------------------------------- Autenticação (JWT)
 // Alinhado com AuthController e user-secrets: Jwt:Key | Jwt:Issuer | Jwt:Audience

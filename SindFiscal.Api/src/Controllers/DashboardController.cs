@@ -4,6 +4,7 @@ using SindFiscal.Authorization;
 using SindFiscal.Data;
 using SindFiscal.Data.Enums;
 using SindFiscal.Dtos;
+using SindFiscal.Services;
 
 namespace SindFiscal.Controllers;
 
@@ -22,8 +23,13 @@ namespace SindFiscal.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly PendenciasService _pendencias;
 
-    public DashboardController(AppDbContext db) => _db = db;
+    public DashboardController(AppDbContext db, PendenciasService pendencias)
+    {
+        _db = db;
+        _pendencias = pendencias;
+    }
 
     [HttpGet]
     public async Task<ActionResult<DashboardResponse>> Obter(
@@ -81,7 +87,8 @@ public class DashboardController : ControllerBase
                 saldoLivre < 0, // NecessidadeDeArrecadacaoExtra
                 valorEmFilaDeExecucao,
                 itensPendentesAreaDeAcerto,
-                itensEmAnaliseOuOrcamento
+                itensEmAnaliseOuOrcamento,
+                await _pendencias.ContarAsync(condominioId, ct)
             )
         );
     }
@@ -156,7 +163,8 @@ public class DashboardController : ControllerBase
                 t.Origem,
                 t.Motivo,
                 t.Status,
-                t.DataExecucao
+                t.DataExecucao,
+                t.Descricao
             ))
             .ToListAsync(ct);
 

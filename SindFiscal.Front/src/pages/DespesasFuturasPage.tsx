@@ -6,6 +6,7 @@ import {
   atualizarPlanejamentoNecessidade,
   definirFundoNoPlanejamento,
   listarDespesasFuturas,
+  listarFornecedores,
   obterProjecaoFundos,
 } from '@/services/api'
 import {
@@ -44,6 +45,7 @@ export function DespesasFuturasPage() {
   const fundo = params.get('fundo') ?? ''
   const etapa = (params.get('etapa') ?? '') as EtapaDespesaFutura | ''
   const prioridade = (params.get('prioridade') ?? '') as Prioridade | ''
+  const fornecedor = params.get('fornecedor') ?? ''
   const de = params.get('de') ?? ''
   const ate = params.get('ate') ?? ''
   const [busca, setBusca] = useState('')
@@ -61,6 +63,7 @@ export function DespesasFuturasPage() {
     semFundo: fundo === SEM_FUNDO,
     etapa: etapa || undefined,
     prioridade: prioridade || undefined,
+    fornecedorId: fornecedor || undefined,
     de: de || undefined,
     ate: ate || undefined,
   }
@@ -68,6 +71,11 @@ export function DespesasFuturasPage() {
   const listaQ = useQuery({
     queryKey: ['despesas-futuras', condominioId, 'lista', filtro],
     queryFn: () => listarDespesasFuturas(condominioId!, filtro),
+    enabled: !!condominioId,
+  })
+  const fornecedoresQ = useQuery({
+    queryKey: ['fornecedores'],
+    queryFn: () => listarFornecedores(),
     enabled: !!condominioId,
   })
   const projecaoQ = useQuery({
@@ -122,7 +130,7 @@ export function DespesasFuturasPage() {
 
   const proj = projecaoQ.data
   const fundosEmDeficit = proj?.fundos.filter((f) => f.consideradoNoPlanejamento && f.emDeficit) ?? []
-  const temFiltro = !!(fundo || etapa || prioridade || de || ate || busca)
+  const temFiltro = !!(fundo || etapa || prioridade || fornecedor || de || ate || busca)
 
   if (!condominioId) {
     return (
@@ -311,6 +319,17 @@ export function DespesasFuturasPage() {
             </select>
           </label>
           <label>
+            Fornecedor
+            <select value={fornecedor} onChange={(e) => setFiltro('fornecedor', e.target.value)}>
+              <option value="">Todos</option>
+              {fornecedoresQ.data?.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             De
             <input type="date" value={de} onChange={(e) => setFiltro('de', e.target.value)} />
           </label>
@@ -341,7 +360,8 @@ export function DespesasFuturasPage() {
           )}
         </div>
         <p className="muted" style={{ marginBottom: '0.5rem' }}>
-          Itens sem data prevista aparecem sempre, mesmo com filtro de período.
+          Itens sem data prevista aparecem sempre, mesmo com filtro de período. O filtro de
+          fornecedor mostra apenas compromissos com cotação escolhida na aprovação.
         </p>
 
         {listaQ.isLoading && <p className="muted">Carregando…</p>}
@@ -359,6 +379,7 @@ export function DespesasFuturasPage() {
                   <th>Prioridade</th>
                   <th>Data prevista</th>
                   <th>Fundo</th>
+                  <th>Fornecedor</th>
                   <th className="df-num">Valor</th>
                   <th className="df-num">A pagar</th>
                   <th />
@@ -445,6 +466,7 @@ function ItemLinha({ item, fundos, editando, salvando, onEditar, onSalvar }: Ite
             <span style={{ color: 'var(--color-warning)' }}>Sem fundo</span>
           )}
         </td>
+        <td>{item.fornecedorNome ?? '—'}</td>
         <td className="df-num">
           {item.semValor ? (
             <span style={{ color: 'var(--color-warning)' }}>Sem valor</span>
@@ -461,7 +483,7 @@ function ItemLinha({ item, fundos, editando, salvando, onEditar, onSalvar }: Ite
       </tr>
       {editando && (
         <tr>
-          <td colSpan={8}>
+          <td colSpan={9}>
             <div className="df-filtros" style={{ marginBottom: 0 }}>
               <label>
                 Prioridade

@@ -36,7 +36,12 @@ import type {
   Reserva,
   ListaDespesasFuturas,
   FiltroDespesasFuturas,
+  GerarRecorrentesPeriodoResultado,
+  MotivoTransferencia,
+  Pendencias,
   ProjecaoFundos,
+  ReceitaRecorrente,
+  RelatorioMensal,
 } from "@/types";
 
 // ---------------------------------------------------------------- Auth
@@ -658,6 +663,7 @@ export function listarDespesasFuturas(
   if (filtro.semFundo) q.set("semFundo", "true");
   if (filtro.etapa) q.set("etapa", filtro.etapa);
   if (filtro.prioridade) q.set("prioridade", filtro.prioridade);
+  if (filtro.fornecedorId) q.set("fornecedorId", filtro.fornecedorId);
   if (filtro.de) q.set("de", filtro.de);
   if (filtro.ate) q.set("ate", filtro.ate);
   if (filtro.busca) q.set("busca", filtro.busca);
@@ -713,6 +719,93 @@ export function definirFundoNoPlanejamento(
   return apiFetch<void>(
     `/condominios/${condominioId}/despesas-futuras/fundos/${contaId}/considerar`,
     { method: "PUT", body: JSON.stringify({ considerar }) },
+  );
+}
+
+// ---------------------------------------------------------------- Receitas recorrentes (RF14, RN20, RN22)
+export interface ReceitaRecorrenteInput {
+  descricao: string;
+  valor: number;
+  contaOrigemId: string | null;
+  contaDestinoId: string;
+  motivo: MotivoTransferencia;
+  dataInicio: string;
+  dataFim: string | null;
+}
+
+export function listarReceitasRecorrentes(condominioId: string) {
+  return apiFetch<ReceitaRecorrente[]>(
+    `/condominios/${condominioId}/receitas-recorrentes`,
+  );
+}
+
+export function criarReceitaRecorrente(
+  condominioId: string,
+  data: ReceitaRecorrenteInput,
+) {
+  return apiFetch<ReceitaRecorrente>(
+    `/condominios/${condominioId}/receitas-recorrentes`,
+    { method: "POST", body: JSON.stringify(data) },
+  );
+}
+
+export function atualizarReceitaRecorrente(
+  condominioId: string,
+  id: string,
+  data: ReceitaRecorrenteInput & { ativa: boolean },
+) {
+  return apiFetch<ReceitaRecorrente>(
+    `/condominios/${condominioId}/receitas-recorrentes/${id}`,
+    { method: "PUT", body: JSON.stringify(data) },
+  );
+}
+
+export function gerarRecorrentesDoPeriodo(
+  condominioId: string,
+  periodoReferencia: string,
+) {
+  return apiFetch<GerarRecorrentesPeriodoResultado>(
+    `/condominios/${condominioId}/receitas-recorrentes/gerar-periodo`,
+    { method: "POST", body: JSON.stringify({ periodoReferencia }) },
+  );
+}
+
+// ---------------------------------------------------------------- Pendências (RF17)
+export function listarPendencias(condominioId: string, desde?: string) {
+  const q = desde ? `?desde=${encodeURIComponent(desde)}` : "";
+  return apiFetch<Pendencias>(`/condominios/${condominioId}/pendencias${q}`);
+}
+
+export function dispensarConciliacao(
+  condominioId: string,
+  lancamentoId: string,
+  motivo: string,
+) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/pendencias/lancamentos/${lancamentoId}/dispensar`,
+    { method: "POST", body: JSON.stringify({ motivo }) },
+  );
+}
+
+export function reativarConciliacao(condominioId: string, lancamentoId: string) {
+  return apiFetch<void>(
+    `/condominios/${condominioId}/pendencias/lancamentos/${lancamentoId}/reativar`,
+    { method: "POST" },
+  );
+}
+
+// ---------------------------------------------------------------- Relatório mensal (RF18)
+export function obterRelatorioMensal(
+  condominioId: string,
+  competencia: string,
+  opcoes: { limiarVariacao?: number; valorMinimo?: number } = {},
+) {
+  const q = new URLSearchParams({ competencia });
+  if (opcoes.limiarVariacao != null)
+    q.set("limiarVariacao", String(opcoes.limiarVariacao));
+  if (opcoes.valorMinimo != null) q.set("valorMinimo", String(opcoes.valorMinimo));
+  return apiFetch<RelatorioMensal>(
+    `/condominios/${condominioId}/relatorios/mensal?${q}`,
   );
 }
 

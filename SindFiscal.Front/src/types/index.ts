@@ -216,6 +216,8 @@ export interface Transferencia {
   motivo: MotivoTransferencia;
   status: StatusTransferencia;
   dataExecucao: string | null;
+  /** Rótulo do item; preenchido nos itens gerados por recorrência. */
+  descricao: string | null;
 }
 
 export interface AreaDeAcerto {
@@ -233,6 +235,7 @@ export interface Dashboard {
   valorEmFilaDeExecucao: number;
   itensPendentesNaAreaDeAcerto: number;
   itensEmAnaliseOuOrcamento: number;
+  pendenciasAbertas: number;
 }
 
 export const STATUS_COMPROMISSO_LABEL: Record<StatusCompromisso, string> = {
@@ -417,6 +420,9 @@ export interface DespesaFutura {
   quantidadeCotacoes: number | null;
   prioridadeFila: number | null;
   atrasada: boolean;
+  /** Fornecedor da cotação escolhida na aprovação; nulo se Planejada ou sem cotação escolhida. */
+  fornecedorId: string | null;
+  fornecedorNome: string | null;
 }
 
 export interface ListaDespesasFuturas {
@@ -432,6 +438,7 @@ export interface FiltroDespesasFuturas {
   semFundo?: boolean;
   etapa?: EtapaDespesaFutura;
   prioridade?: Prioridade;
+  fornecedorId?: string;
   /** DateOnly → "YYYY-MM-DD" */
   de?: string;
   ate?: string;
@@ -478,4 +485,127 @@ export const ETAPA_DESPESA_FUTURA_LABEL: Record<EtapaDespesaFutura, string> = {
   aprovada: "Aprovada",
   contratada: "Contratada",
 };
+
+// ---------------------------------------------------------------- Receitas recorrentes (RF14, RN20, RN22)
+export interface ReceitaRecorrente {
+  id: string;
+  descricao: string;
+  valor: number;
+  contaOrigemId: string;
+  contaOrigemNome: string;
+  contaDestinoId: string;
+  contaDestinoNome: string;
+  motivo: MotivoTransferencia;
+  /** DateOnly → "YYYY-MM-DD" */
+  dataInicio: string;
+  dataFim: string | null;
+  ativa: boolean;
+  /** 1º dia da competência do último item gerado. */
+  ultimoPeriodoGerado: string | null;
+}
+
+export interface GerarRecorrentesPeriodoResultado {
+  geradas: number;
+  jaGeradas: number;
+  itens: Transferencia[];
+}
+
+// ---------------------------------------------------------------- Pendências (RF17)
+export type TipoPendencia =
+  | "lancamento_sem_pagamento"
+  | "compromisso_sem_fundo"
+  | "necessidade_sem_valor";
+
+export interface Pendencia {
+  tipo: TipoPendencia;
+  referenciaId: string;
+  descricao: string;
+  valor: number | null;
+  /** DateOnly → "YYYY-MM-DD" */
+  data: string | null;
+  detalhe: string | null;
+}
+
+export interface Pendencias {
+  total: number;
+  lancamentosSemPagamento: number;
+  compromissosSemFundo: number;
+  necessidadesSemValor: number;
+  itens: Pendencia[];
+}
+
+// ---------------------------------------------------------------- Relatório mensal (RF18)
+export type ClassificacaoDespesa =
+  | "regular"
+  | "nova_despesa"
+  | "ponto_para_conferencia"
+  | "sem_vinculo";
+
+export const CLASSIFICACAO_DESPESA_LABEL: Record<ClassificacaoDespesa, string> = {
+  regular: "Regular",
+  nova_despesa: "Nova despesa",
+  ponto_para_conferencia: "Ponto para conferência",
+  sem_vinculo: "Sem vínculo",
+};
+
+export interface ResumoMensal {
+  entradas: number;
+  saidas: number;
+  resultado: number;
+  quantidadeLancamentos: number;
+}
+
+export interface MovimentacaoContaMensal {
+  contaId: string;
+  nome: string;
+  finalidade: FinalidadeConta;
+  ehContaOperacional: boolean;
+  entradas: number;
+  saidas: number;
+  liquido: number;
+  saldoAtual: number;
+}
+
+export interface DespesaCategoriaMensal {
+  categoria: string;
+  totalMes: number;
+  totalMesAnterior: number;
+  variacao: number;
+  variacaoPercentual: number | null;
+  classificacao: ClassificacaoDespesa;
+  quantidade: number;
+}
+
+export interface DespesaMensal {
+  lancamentoId: string;
+  data: string;
+  descricao: string;
+  contaNome: string;
+  categoria: string;
+  fundoResponsavelId: string | null;
+  fundoResponsavelNome: string | null;
+  valor: number;
+  classificacao: ClassificacaoDespesa;
+  conciliacaoDispensada: boolean;
+}
+
+export interface RelatorioMensal {
+  competencia: string;
+  inicio: string;
+  fim: string;
+  parcial: boolean;
+  limiarVariacao: number;
+  valorMinimoVariacao: number;
+  resumo: ResumoMensal;
+  mesAnterior: ResumoMensal;
+  pagamentosRegistradosNoMes: number;
+  compromissosAprovadosNoMes: number;
+  valorCompromissosAprovadosNoMes: number;
+  porConta: MovimentacaoContaMensal[];
+  despesasPorCategoria: DespesaCategoriaMensal[];
+  despesas: DespesaMensal[];
+  concentracaoTop3: number;
+  transferenciasExecutadas: Transferencia[];
+  pendenciasAbertas: number;
+}
 

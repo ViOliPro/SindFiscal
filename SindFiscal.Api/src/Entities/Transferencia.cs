@@ -29,6 +29,16 @@ public class Transferencia
     public StatusTransferencia Status { get; set; } = StatusTransferencia.Pendente;
 
     public DateOnly? DataExecucao { get; set; }
+
+    /// <summary>Rótulo livre do item (ex.: "Antena TIM"). Preenchido nos itens gerados por recorrência.</summary>
+    public string? Descricao { get; set; }
+
+    /// <summary>Recorrência que gerou este item (quando houver).</summary>
+    public Guid? ReceitaRecorrenteId { get; set; }
+
+    /// <summary>Primeiro dia da competência atendida pela recorrência. Junto com ReceitaRecorrenteId é único.</summary>
+    public DateOnly? PeriodoReferencia { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 

@@ -224,6 +224,65 @@ public class AreaDeAcertoService
         return transferencia;
     }
 
+    /// <summary>
+    /// RF14, RN20, RN22 — gera, para a competência informada, um item pendente por
+    /// receita recorrente ativa e vigente. Idempotente: uma recorrência nunca gera
+    /// dois itens no mesmo período (checagem aqui + índice único no banco), então
+    /// pode ser chamada de novo sem duplicar. Retorna só os itens criados agora e
+    /// quantas recorrências já tinham item no período.
+    /// </summary>
+    public async Task<(IReadOnlyList<Transferencia> Geradas, int JaGeradas)> GerarRecorrentesDoPeriodoAsync(
+        Guid condominioId, DateOnly periodoReferencia, CancellationToken ct = default)
+    {
+        var inicio = new DateOnly(periodoReferencia.Year, periodoReferencia.Month, 1);
+        var fim = inicio.AddMonths(1).AddDays(-1);
+
+        var vigentes = await _db.ReceitasRecorrentes
+            .Where(r => r.CondominioId == condominioId
+                     && r.Ativa
+                     && r.DataInicio <= fim
+                     && (r.DataFim == null || r.DataFim >= inicio))
+            .ToListAsync(ct);
+
+        var idsVigentes = vigentes.Select(r => r.Id).ToList();
+        var jaTem = (await _db.Transferencias
+            .Where(t => t.ReceitaRecorrenteId != null
+                     && idsVigentes.Contains(t.ReceitaRecorrenteId.Value)
+                     && t.PeriodoReferencia == inicio)
+            .Select(t => t.ReceitaRecorrenteId!.Value)
+            .ToListAsync(ct)).ToHashSet();
+
+        var geradas = new List<Transferencia>();
+        foreach (var regra in vigentes.Where(r => !jaTem.Contains(r.Id)))
+        {
+            var transferencia = new Transferencia
+            {
+                Id = Guid.NewGuid(),
+                CondominioId = condominioId,
+                ContaOrigemId = regra.ContaOrigemId,
+                ContaDestinoId = regra.ContaDestinoId,
+                Valor = regra.Valor,
+                Tipo = TipoTransferencia.Individual, // RN17 — padrão individual
+                Modo = ModoTransferencia.ChecklistManual,
+                Origem = OrigemTransferencia.SugeridaPeloSistema,
+                Motivo = regra.Motivo,
+                Status = StatusTransferencia.Pendente,
+                Descricao = regra.Descricao,
+                ReceitaRecorrenteId = regra.Id,
+                PeriodoReferencia = inicio,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            _db.Transferencias.Add(transferencia);
+            geradas.Add(transferencia);
+        }
+
+        if (geradas.Count > 0)
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        return (geradas, jaTem.Count);
+    }
+
     /// <summary>RF14 — síndico confirma que executou manualmente no site da administradora, atualizando os saldos.</summary>
     public async Task ConfirmarExecucaoAsync(Guid transferenciaId, DateOnly dataExecucao, CancellationToken ct = default)
     {

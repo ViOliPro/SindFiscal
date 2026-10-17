@@ -14,6 +14,7 @@ public record FiltroDespesasFuturas(
     bool SemFundo = false,
     EtapaDespesaFutura? Etapa = null,
     Prioridade? Prioridade = null,
+    Guid? FornecedorId = null,
     DateOnly? De = null,
     DateOnly? Ate = null,
     string? Busca = null
@@ -38,14 +39,14 @@ public class DespesasFuturasService
         _db = db;
     }
 
-    private static readonly StatusCompromisso[] StatusAbertos =
+    public static readonly StatusCompromisso[] StatusAbertos =
     {
         StatusCompromisso.AguardandoExecucao,
         StatusCompromisso.EmFilaExecucao,
         StatusCompromisso.EmExecucao,
     };
 
-    private static readonly SituacaoNecessidade[] SituacoesPlanejaveis =
+    public static readonly SituacaoNecessidade[] SituacoesPlanejaveis =
     {
         SituacaoNecessidade.EmAnalise,
         SituacaoNecessidade.EmOrcamento,
@@ -70,6 +71,9 @@ public class DespesasFuturasService
             q = q.Where(i => i.Etapa == filtro.Etapa);
         if (filtro.Prioridade is not null)
             q = q.Where(i => i.Prioridade == filtro.Prioridade);
+        // Só compromissos têm fornecedor escolhido; itens Planejados saem quando o filtro está ativo.
+        if (filtro.FornecedorId is Guid fornecedorId)
+            q = q.Where(i => i.FornecedorId == fornecedorId);
         if (filtro.De is DateOnly de)
             q = q.Where(i => i.DataPrevista is null || i.DataPrevista >= de);
         if (filtro.Ate is DateOnly ate)
@@ -205,8 +209,37 @@ public class DespesasFuturasService
             )
             .ToListAsync(ct);
 
+        // Fornecedor = cotação escolhida na decisão de aprovação mais recente da necessidade.
+        var necessidadeIds = compromissos
+            .Where(c => c.NecessidadeId != null)
+            .Select(c => c.NecessidadeId!.Value)
+            .Distinct()
+            .ToList();
+        var decisoes = await _db
+            .Decisoes.AsNoTracking()
+            .Include(d => d.CotacaoEscolhida)
+            .ThenInclude(c => c!.Fornecedor)
+            .Where(d =>
+                necessidadeIds.Contains(d.NecessidadeId)
+                && d.Resultado == ResultadoDecisao.Aprovado
+                && d.CotacaoEscolhidaId != null
+            )
+            .ToListAsync(ct);
+        var fornecedorPorNecessidade = decisoes
+            .GroupBy(d => d.NecessidadeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(d => d.Data).ThenByDescending(d => d.CreatedAt).First()
+                    .CotacaoEscolhida!.Fornecedor
+            );
+
         foreach (var c in compromissos)
         {
+            var fornecedor =
+                c.NecessidadeId is Guid necId
+                && fornecedorPorNecessidade.TryGetValue(necId, out var f)
+                    ? f
+                    : null;
             var pago = c.Pagamentos.Sum(p => p.Valor);
             var provisionado = Math.Max(0m, c.ValorAprovado - pago);
             // Sem fundo previsto, assume o fundo do último pagamento já feito.
@@ -235,7 +268,9 @@ public class DespesasFuturasService
                     false,
                     null,
                     c.PrioridadeFila,
-                    c.DataPrevista is DateOnly d && d < hoje
+                    c.DataPrevista is DateOnly d && d < hoje,
+                    fornecedor?.Id,
+                    fornecedor?.Nome
                 )
             );
         }
@@ -272,7 +307,9 @@ public class DespesasFuturasService
                     n.ValorEstimado is null && !temCotacao,
                     n.Cotacoes.Count,
                     null,
-                    n.DataPrevista is DateOnly d && d < hoje
+                    n.DataPrevista is DateOnly d && d < hoje,
+                    null,
+                    null
                 )
             );
         }

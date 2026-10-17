@@ -37,13 +37,23 @@ public class DespesasFuturasController : ControllerBase
         [FromQuery] bool semFundo,
         [FromQuery, ModelBinder(typeof(SnakeCaseEnumModelBinder))] EtapaDespesaFutura? etapa,
         [FromQuery, ModelBinder(typeof(SnakeCaseEnumModelBinder))] Prioridade? prioridade,
+        [FromQuery] Guid? fornecedorId,
         [FromQuery] DateOnly? de,
         [FromQuery] DateOnly? ate,
         [FromQuery] string? busca,
         CancellationToken ct
     )
     {
-        var filtro = new FiltroDespesasFuturas(fundoId, semFundo, etapa, prioridade, de, ate, busca);
+        var filtro = new FiltroDespesasFuturas(
+            fundoId,
+            semFundo,
+            etapa,
+            prioridade,
+            fornecedorId,
+            de,
+            ate,
+            busca
+        );
         return Ok(await _servico.ListarAsync(condominioId, filtro, ct));
     }
 
